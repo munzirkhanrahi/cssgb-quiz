@@ -8,57 +8,209 @@
   const QUESTIONS = BANK.questions;
   const BY_ID = new Map(QUESTIONS.map((q) => [q.id, q]));
   const CHAPTERS = BANK.chapters;
+  const CH_NUMS = new Set(CHAPTERS.map((c) => c.n));
   const LETTERS = ["A", "B", "C", "D"];
   const STORE_KEY = "gbdrill.v1";
-  const RECENT_MAX = 300;
+  const SYNC_KEY = "gbdrill.sync";
+  const GIST_FILE = "green-belt-drill.json";
+  const ATTEMPTS_MAX = 20000;
+  const DEFAULT_SETTINGS = { shuffleQ: true, shuffleOpts: true, target: 75, mixedSize: 25 };
 
-  const DEFAULTS = {
-    saved: [],
-    history: {}, // id -> { s: times seen, c: times correct, l: last result 1/0 }
-    recent: [], // last answers across sessions, 1 = correct, 0 = missed
+  /* =====================================================================
+     Data model (everything is kept; nothing is thrown away)
+       attempts:  [[time, questionId, pickedOriginalIndex], ...]  every answer ever given
+       saved:     { questionId: { v: 1 | 0, t: time } }           1 = saved, 0 = removed
+       settings + settingsT, selected + selectedT                 last change wins
+       session:   the current quiz, with t = last change          resumes on any device
+     ===================================================================== */
+  const blank = () => ({
+    v: 2,
+    attempts: [],
+    saved: {},
+    settings: Object.assign({}, DEFAULT_SETTINGS),
+    settingsT: 0,
     selected: [],
-    settings: { shuffleQ: true, shuffleOpts: true, target: 75, mixedSize: 25 },
+    selectedT: 0,
     session: null,
-  };
+  });
 
-  /* ---------------- storage ---------------- */
-  let storageOk = true;
-  const clone = (o) => JSON.parse(JSON.stringify(o));
-
-  function load() {
-    const base = clone(DEFAULTS);
-    try {
-      const raw = localStorage.getItem(STORE_KEY);
-      if (!raw) return base;
-      const s = JSON.parse(raw);
-      return {
-        saved: Array.isArray(s.saved) ? s.saved.filter((id) => BY_ID.has(id)) : [],
-        history: s.history && typeof s.history === "object" ? s.history : {},
-        recent: Array.isArray(s.recent) ? s.recent.slice(-RECENT_MAX) : [],
-        selected: Array.isArray(s.selected) ? s.selected : [],
-        settings: Object.assign(base.settings, s.settings || {}),
-        session: validSession(s.session) ? s.session : null,
-      };
-    } catch (e) {
-      storageOk = false;
-      return base;
-    }
-  }
+  const num = (x) => (typeof x === "number" && isFinite(x) ? x : 0);
 
   function validSession(s) {
-    return s && Array.isArray(s.ids) && s.ids.length && s.ids.every((id) => BY_ID.has(id)) && s.perm && s.picks;
+    return (
+      s && typeof s === "object" && Array.isArray(s.ids) && s.ids.length > 0 &&
+      s.ids.every((id) => BY_ID.has(id)) && s.perm && typeof s.perm === "object" &&
+      s.picks && typeof s.picks === "object" &&
+      s.ids.every((id) => Array.isArray(s.perm[id]) && s.perm[id].length === 4)
+    );
   }
 
-  let state = load();
+  function cleanSession(s, fallbackT) {
+    if (!validSession(s)) return null;
+    const picks = {};
+    for (const [id, p] of Object.entries(s.picks)) if (BY_ID.has(id) && Number.isInteger(p) && p >= 0 && p <= 3) picks[id] = p;
+    return {
+      title: String(s.title || "Quiz"),
+      ids: s.ids.slice(),
+      perm: s.perm,
+      picks,
+      i: Math.min(Math.max(0, Number.isInteger(s.i) ? s.i : 0), s.ids.length - 1),
+      done: !!s.done,
+      t: num(s.t) || fallbackT,
+    };
+  }
 
-  function persist() {
+  // Accepts current data, older (v1) data, backups and the synced file.
+  function sanitize(raw) {
+    const out = blank();
+    if (!raw || typeof raw !== "object") return out;
+    if (raw.data && typeof raw.data === "object" && (raw.app === "green-belt-drill")) raw = raw.data;
+
+    const settingsIn = raw.settings && typeof raw.settings === "object" ? raw.settings : {};
+    for (const k of Object.keys(DEFAULT_SETTINGS)) {
+      if (typeof settingsIn[k] === typeof DEFAULT_SETTINGS[k]) out.settings[k] = settingsIn[k];
+    }
+    out.selected = Array.isArray(raw.selected) ? raw.selected.filter((n) => CH_NUMS.has(n)) : [];
+
+    if (Array.isArray(raw.attempts)) {
+      // v2
+      out.attempts = raw.attempts
+        .filter((a) => Array.isArray(a) && typeof a[0] === "number" && BY_ID.has(a[1]) && Number.isInteger(a[2]) && a[2] >= -1 && a[2] <= 3)
+        .map((a) => [a[0], a[1], a[2]]);
+      if (raw.saved && typeof raw.saved === "object" && !Array.isArray(raw.saved)) {
+        for (const [id, r] of Object.entries(raw.saved)) {
+          if (BY_ID.has(id) && r && (r.v === 0 || r.v === 1)) out.saved[id] = { v: r.v, t: num(r.t) };
+        }
+      }
+      out.settingsT = num(raw.settingsT);
+      out.selectedT = num(raw.selectedT);
+      out.session = cleanSession(raw.session, 1);
+    } else {
+      // v1: saved was a list; history held counts. Rebuild an attempt log from the counts.
+      let t = 1;
+      if (Array.isArray(raw.saved)) for (const id of raw.saved) if (BY_ID.has(id)) out.saved[id] = { v: 1, t: 1 };
+      const hist = raw.history && typeof raw.history === "object" ? raw.history : {};
+      for (const [id, h] of Object.entries(hist)) {
+        const q = BY_ID.get(id);
+        if (!q || !h || typeof h.s !== "number") continue;
+        const s = Math.max(0, Math.floor(h.s));
+        const c = Math.min(s, Math.max(0, Math.floor(num(h.c))));
+        const results = [];
+        const lastOk = h.l === 1;
+        // order so that the final attempt matches the recorded last result
+        if (lastOk) { for (let k = 0; k < s - c; k++) results.push(0); for (let k = 0; k < c; k++) results.push(1); }
+        else { for (let k = 0; k < c; k++) results.push(1); for (let k = 0; k < s - c; k++) results.push(0); }
+        for (const r of results) out.attempts.push([t++, id, r ? q.a : -1]);
+      }
+      out.settingsT = 1;
+      out.selectedT = 1;
+      out.session = cleanSession(raw.session, 1);
+    }
+    out.attempts.sort((a, b) => a[0] - b[0]);
+    if (out.attempts.length > ATTEMPTS_MAX) out.attempts = out.attempts.slice(-ATTEMPTS_MAX);
+    return out;
+  }
+
+  // Combine two copies of the data without losing anything.
+  function mergeStates(a, b) {
+    const out = blank();
+    const byKey = new Map();
+    for (const x of a.attempts) byKey.set(x[0] + "|" + x[1], x);
+    for (const x of b.attempts) if (!byKey.has(x[0] + "|" + x[1])) byKey.set(x[0] + "|" + x[1], x);
+    out.attempts = Array.from(byKey.values()).sort((p, q) => p[0] - q[0]).slice(-ATTEMPTS_MAX);
+
+    out.saved = Object.assign({}, a.saved);
+    for (const [id, r] of Object.entries(b.saved)) if (!out.saved[id] || r.t > out.saved[id].t) out.saved[id] = r;
+
+    const useB = (ta, tb) => tb > ta;
+    if (useB(a.settingsT, b.settingsT)) { out.settings = Object.assign({}, b.settings); out.settingsT = b.settingsT; }
+    else { out.settings = Object.assign({}, a.settings); out.settingsT = a.settingsT; }
+    if (useB(a.selectedT, b.selectedT)) { out.selected = b.selected.slice(); out.selectedT = b.selectedT; }
+    else { out.selected = a.selected.slice(); out.selectedT = a.selectedT; }
+
+    if (!a.session) out.session = b.session;
+    else if (!b.session) out.session = a.session;
+    else out.session = b.session.t > a.session.t ? b.session : a.session;
+    return out;
+  }
+
+  function signature(s) {
+    let savedMax = 0;
+    for (const r of Object.values(s.saved)) savedMax = Math.max(savedMax, r.t);
+    const lastT = s.attempts.length ? s.attempts[s.attempts.length - 1][0] : 0;
+    return [s.attempts.length, lastT, Object.keys(s.saved).length, savedMax, s.settingsT, s.selectedT, s.session ? s.session.t : 0].join("|");
+  }
+
+  /* ---------------- local storage ---------------- */
+  let storageOk = true;
+
+  function readLocal() {
+    try {
+      const raw = localStorage.getItem(STORE_KEY);
+      return raw ? sanitize(JSON.parse(raw)) : blank();
+    } catch (e) {
+      storageOk = false;
+      return blank();
+    }
+  }
+
+  let state = readLocal();
+  let lastStamp = state.attempts.length ? state.attempts[state.attempts.length - 1][0] : 0;
+  const now = () => (lastStamp = Math.max(Date.now(), lastStamp + 1));
+
+  function writeLocal() {
     try {
       localStorage.setItem(STORE_KEY, JSON.stringify(state));
+      storageOk = true;
     } catch (e) {
-      if (storageOk) toast("This browser isn't keeping your progress (private mode?). Use Backup before closing.");
+      if (storageOk) toast("This browser refused to store your progress. Turn on sync so nothing is lost.");
       storageOk = false;
     }
   }
+
+  // Every change goes through here: store locally right away, then sync.
+  function commit() {
+    writeLocal();
+    Sync.markDirty();
+  }
+
+  // Ask the browser not to clear this site's storage under pressure.
+  try {
+    if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+  } catch (e) { /* ignore */ }
+
+  // Another tab of this site changed the data: fold it in.
+  window.addEventListener("storage", (e) => {
+    if (e.key !== STORE_KEY || !e.newValue) return;
+    try {
+      const other = sanitize(JSON.parse(e.newValue));
+      if (signature(other) === signature(state)) return;
+      state = mergeStates(state, other);
+      rerender();
+    } catch (err) { /* ignore */ }
+  });
+
+  /* ---------------- derived data ---------------- */
+  let histCache = { key: "", map: {} };
+  function historyMap() {
+    const key = state.attempts.length + ":" + (state.attempts.length ? state.attempts[state.attempts.length - 1][0] : 0);
+    if (histCache.key === key) return histCache.map;
+    const m = {};
+    for (const [, id, pick] of state.attempts) {
+      const q = BY_ID.get(id);
+      const ok = pick === q.a ? 1 : 0;
+      const h = m[id] || (m[id] = { s: 0, c: 0, l: null });
+      h.s++;
+      h.c += ok;
+      h.l = ok;
+    }
+    histCache = { key, map: m };
+    return m;
+  }
+  const attemptOk = (a) => (a[2] === BY_ID.get(a[1]).a ? 1 : 0);
+  const savedIds = () =>
+    Object.entries(state.saved).filter(([, r]) => r.v === 1).sort((x, y) => x[1].t - y[1].t).map(([id]) => id);
+  const isSaved = (id) => !!(state.saved[id] && state.saved[id].v === 1);
 
   /* ---------------- helpers ---------------- */
   const esc = (s) =>
@@ -73,9 +225,9 @@
   }
 
   const chapterTitle = (n) => (CHAPTERS.find((c) => c.n === n) || {}).title || "";
-  const isSaved = (id) => state.saved.includes(id);
   const pct = (a, b) => (b ? Math.round((100 * a) / b) : 0);
   const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
+  const clock = (t) => new Date(t).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 
   let toastTimer;
   function toast(msg) {
@@ -89,12 +241,216 @@
     el.textContent = msg;
     el.classList.add("show");
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => el.classList.remove("show"), 2600);
+    toastTimer = setTimeout(() => el.classList.remove("show"), 3000);
   }
 
   const ICON_SAVE = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-6-4.5L6 21z" fill="currentColor"/></svg>`;
   const ICON_UNSAVED = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-6-4.5L6 21z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>`;
   const LOGO = `<svg viewBox="0 0 44 44" aria-hidden="true"><rect x="1" y="1" width="42" height="42" rx="9" fill="#2E7D4F"/><path d="M6 15h32M6 29h32" stroke="#E1EFE6" stroke-width="1.5" stroke-dasharray="3 3"/><polyline points="7,24 13,19 19,23 25,17 31,21 37,12" fill="none" stroke="#fff" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/><circle cx="37" cy="12" r="3.2" fill="#fff" stroke="#B83A26" stroke-width="2"/></svg>`;
+
+  /* =====================================================================
+     Sync to a private GitHub gist (single user, any device)
+     ===================================================================== */
+  const Sync = (() => {
+    let cfg = {};
+    try { cfg = JSON.parse(localStorage.getItem(SYNC_KEY) || "{}") || {}; } catch (e) { cfg = {}; }
+    let status = cfg.token && cfg.gistId ? { s: "idle" } : { s: "off" };
+    let timer = null;
+    let running = null;
+    let again = false;
+
+    const saveCfg = () => { try { localStorage.setItem(SYNC_KEY, JSON.stringify(cfg)); } catch (e) { /* ignore */ } };
+    const enabled = () => !!(cfg.token && cfg.gistId);
+
+    function setStatus(s, msg) {
+      status = { s, msg };
+      paintChip();
+    }
+
+    async function api(path, opts = {}) {
+      const headers = { Accept: "application/vnd.github+json", Authorization: "Bearer " + cfg.token };
+      if (opts.body) headers["Content-Type"] = "application/json";
+      const res = await fetch("https://api.github.com" + path, Object.assign({ cache: "no-store" }, opts, { headers }));
+      if (!res.ok) {
+        const err = new Error("GitHub said " + res.status);
+        err.status = res.status;
+        throw err;
+      }
+      return res.status === 204 ? null : res.json();
+    }
+
+    const payload = () =>
+      JSON.stringify({ app: "green-belt-drill", v: 2, updated: new Date().toISOString(), data: state });
+
+    async function readGist() {
+      const g = await api("/gists/" + cfg.gistId);
+      const f = g.files && g.files[GIST_FILE];
+      if (!f) return blank();
+      let text = f.content;
+      if (f.truncated && f.raw_url) text = await (await fetch(f.raw_url, { cache: "no-store" })).text();
+      try { return sanitize(JSON.parse(text)); } catch (e) { return blank(); }
+    }
+
+    async function writeGist() {
+      await api("/gists/" + cfg.gistId, { method: "PATCH", body: JSON.stringify({ files: { [GIST_FILE]: { content: payload() } } }) });
+    }
+
+    // pull, merge, push if the cloud copy is missing anything
+    async function syncOnce() {
+      const remote = await readGist();
+      const before = signature(state);
+      const merged = mergeStates(state, remote);
+      const changedHere = signature(merged) !== before;
+      state = merged;
+      writeLocal();
+      if (signature(merged) !== signature(remote)) await writeGist();
+      cfg.dirty = false;
+      cfg.lastSync = Date.now();
+      saveCfg();
+      return changedHere;
+    }
+
+    async function run() {
+      if (!enabled()) return;
+      if (running) { again = true; return running; }
+      if (!navigator.onLine) { setStatus("offline"); return; }
+      setStatus("syncing");
+      running = (async () => {
+        try {
+          const changedHere = await syncOnce();
+          setStatus("ok");
+          if (changedHere) rerender();
+        } catch (e) {
+          handleError(e);
+        } finally {
+          running = null;
+          if (again) { again = false; schedule(500); }
+        }
+      })();
+      return running;
+    }
+
+    function handleError(e) {
+      if (e.status === 401) setStatus("error", "GitHub rejected the token. It may have expired or been deleted. Paste a new one on the Sync screen.");
+      else if (e.status === 404) setStatus("error", "The sync file was not found on GitHub (it may have been deleted). Turn sync off and on again to recreate it.");
+      else if (e.status === 403 || e.status === 429) setStatus("error", "GitHub is limiting requests right now. Your progress is safe here and will sync later.");
+      else if (!navigator.onLine) setStatus("offline");
+      else setStatus("error", "Couldn't reach GitHub. Your progress is safe in this browser and will sync when it can.");
+    }
+
+    function schedule(ms = 2500) {
+      if (!enabled()) return;
+      clearTimeout(timer);
+      timer = setTimeout(run, ms);
+    }
+
+    function markDirty() {
+      if (!enabled()) return;
+      cfg.dirty = true;
+      saveCfg();
+      if (status.s !== "syncing") setStatus("pending");
+      schedule();
+    }
+
+    // Leaving the page: push straight away without waiting for the timer.
+    function flush() {
+      if (!enabled() || !cfg.dirty) return;
+      clearTimeout(timer);
+      const body = JSON.stringify({ files: { [GIST_FILE]: { content: payload() } } });
+      try {
+        fetch("https://api.github.com/gists/" + cfg.gistId, {
+          method: "PATCH",
+          keepalive: body.length < 60000,
+          headers: { Accept: "application/vnd.github+json", Authorization: "Bearer " + cfg.token, "Content-Type": "application/json" },
+          body,
+        }).then((r) => { if (r.ok) { cfg.dirty = false; cfg.lastSync = Date.now(); saveCfg(); } }).catch(() => {});
+      } catch (e) { /* the next visit will sync */ }
+    }
+
+    async function connect(token) {
+      cfg = { token: token.trim() };
+      setStatus("syncing");
+      try {
+        const user = await api("/user");
+        cfg.login = user.login;
+        // reuse the sync file if this account already has one (e.g. set up on another device)
+        let found = null;
+        for (let page = 1; page <= 10 && !found; page++) {
+          const list = await api(`/gists?per_page=100&page=${page}`);
+          found = list.find((g) => g.files && g.files[GIST_FILE]);
+          if (list.length < 100) break;
+        }
+        if (found) {
+          cfg.gistId = found.id;
+        } else {
+          const g = await api("/gists", {
+            method: "POST",
+            body: JSON.stringify({
+              description: "Green Belt Drill progress (synced by the quiz app; do not edit)",
+              public: false,
+              files: { [GIST_FILE]: { content: payload() } },
+            }),
+          });
+          cfg.gistId = g.id;
+        }
+        cfg.gistUrl = found ? found.html_url : "https://gist.github.com/" + cfg.gistId;
+        saveCfg();
+        await syncOnce();
+        setStatus("ok");
+        return { ok: true, reused: !!found };
+      } catch (e) {
+        const msg =
+          e.status === 401 ? "GitHub didn't accept that token. Check you copied all of it."
+          : e.status === 403 || e.status === 404 ? "That token can't create gists. Make a new one with the gist box ticked."
+          : "Couldn't reach GitHub. Check your connection and try again.";
+        cfg = {};
+        saveCfg();
+        setStatus("off");
+        return { ok: false, msg };
+      }
+    }
+
+    function disconnect() {
+      clearTimeout(timer);
+      cfg = {};
+      saveCfg();
+      setStatus("off");
+    }
+
+    window.addEventListener("online", () => schedule(300));
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "hidden") flush();
+      else schedule(300); // coming back: pick up anything done on another device
+    });
+    window.addEventListener("pagehide", flush);
+
+    return {
+      start: () => { if (enabled()) run(); },
+      run, markDirty, connect, disconnect, enabled,
+      info: () => ({ login: cfg.login, gistUrl: cfg.gistUrl, lastSync: cfg.lastSync, status }),
+    };
+  })();
+
+  function chipHtml() {
+    const { status, lastSync } = Sync.info();
+    const map = {
+      off: ["warn", "Saved in this browser only. Turn on sync"],
+      idle: ["", "Sync on"],
+      pending: ["", "Saving to GitHub…"],
+      syncing: ["", "Saving to GitHub…"],
+      ok: ["good", lastSync ? `Saved to GitHub ${clock(lastSync)}` : "Saved to GitHub"],
+      offline: ["warn", "Offline. Saved here, will sync later"],
+      error: ["bad", "Sync problem. Tap for details"],
+    };
+    const [cls, text] = map[status.s] || map.idle;
+    return `<button class="sync-chip ${cls}" id="sync-chip" data-act="sync"><i aria-hidden="true"></i>${esc(text)}</button>`;
+  }
+  function paintChip() {
+    const el = document.getElementById("sync-chip");
+    if (el) el.outerHTML = chipHtml();
+    const panel = document.getElementById("sync-status");
+    if (panel) panel.innerHTML = syncStatusHtml();
+  }
 
   /* ---------------- run chart ---------------- */
   function runChart(results, { height = 120, label = "Running accuracy" } = {}) {
@@ -142,8 +498,8 @@
     if (state.settings.shuffleQ && !keepOrder) shuffle(order);
     const perm = {};
     for (const id of order) perm[id] = state.settings.shuffleOpts ? shuffle([0, 1, 2, 3]) : [0, 1, 2, 3];
-    state.session = { title, ids: order, perm, picks: {}, i: 0, done: false };
-    persist();
+    state.session = { title, ids: order, perm, picks: {}, i: 0, done: false, t: now() };
+    commit();
     go("quiz");
   }
 
@@ -156,48 +512,42 @@
     if (!s) return;
     const id = s.ids[s.i];
     if (id in s.picks) return;
-    const q = BY_ID.get(id);
     const orig = s.perm[id][displayIdx];
     s.picks[id] = orig;
-    const right = orig === q.a ? 1 : 0;
-    const h = state.history[id] || { s: 0, c: 0, l: null };
-    h.s += 1;
-    h.c += right;
-    h.l = right;
-    state.history[id] = h;
-    state.recent.push(right);
-    if (state.recent.length > RECENT_MAX) state.recent = state.recent.slice(-RECENT_MAX);
-    persist();
+    const t = now();
+    s.t = t;
+    state.attempts.push([t, id, orig]);
+    if (state.attempts.length > ATTEMPTS_MAX) state.attempts = state.attempts.slice(-ATTEMPTS_MAX);
+    commit();
     renderQuiz({ justAnswered: true });
   }
 
   function next() {
     const s = state.session;
     if (!s) return;
+    s.t = now();
     if (s.i < s.ids.length - 1) {
       s.i += 1;
-      persist();
+      commit();
       renderQuiz();
       window.scrollTo(0, 0);
     } else {
       s.done = true;
-      persist();
+      commit();
       go("results");
     }
   }
 
   function toggleSave(id) {
-    if (isSaved(id)) {
-      state.saved = state.saved.filter((x) => x !== id);
-      toast("Removed from saved");
-    } else {
-      state.saved.push(id);
-      toast("Saved for later");
-    }
-    persist();
+    const was = isSaved(id);
+    state.saved[id] = { v: was ? 0 : 1, t: now() };
+    commit();
+    toast(was ? "Removed from saved" : "Saved for later");
   }
 
   /* ---------------- routing ---------------- */
+  const currentView = () => location.hash.replace(/^#\/?/, "") || "home";
+
   function go(view) {
     const h = "#/" + (view === "home" ? "" : view);
     if (location.hash !== h) location.hash = h;
@@ -205,31 +555,54 @@
   }
 
   function route() {
-    const view = location.hash.replace(/^#\/?/, "") || "home";
+    const view = currentView();
     if (view === "quiz" && state.session && !state.session.done) renderQuiz();
     else if (view === "results" && state.session) renderResults();
     else if (view === "saved") renderSaved();
+    else if (view === "sync") renderSync();
     else renderHome();
     window.scrollTo(0, 0);
   }
   window.addEventListener("hashchange", route);
 
+  // Re-draw after data arrived from another device or tab, keeping the scroll position.
+  function rerender() {
+    if (document.activeElement && /^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement.tagName)) return;
+    const y = window.scrollY;
+    const view = currentView();
+    if (view === "quiz" && state.session && !state.session.done) renderQuiz();
+    else if (view === "results" && state.session) renderResults();
+    else if (view === "saved") renderSaved();
+    else if (view === "sync") renderSync();
+    else renderHome();
+    window.scrollTo(0, y);
+  }
+
   /* ---------------- views ---------------- */
+  function masthead() {
+    return `<header class="masthead">
+        <div class="brand">${LOGO}<div><h1>Green Belt Drill</h1><p>${QUESTIONS.length} CSSGB practice questions across ${CHAPTERS.length} chapters</p></div></div>
+        ${chipHtml()}
+      </header>`;
+  }
+
   function renderHome() {
-    const missedIds = QUESTIONS.filter((q) => state.history[q.id] && state.history[q.id].l === 0).map((q) => q.id);
-    const recent = state.recent.slice(-60);
+    const hist = historyMap();
+    const missedIds = QUESTIONS.filter((q) => hist[q.id] && hist[q.id].l === 0).map((q) => q.id);
+    const recent = state.attempts.slice(-60).map(attemptOk);
     const recentOk = recent.reduce((a, b) => a + b, 0);
-    const answeredAll = QUESTIONS.filter((q) => state.history[q.id]).length;
+    const answeredAll = Object.keys(hist).length;
     const sel = new Set(state.selected);
     const selCount = QUESTIONS.filter((q) => sel.has(q.ch)).length;
     const s = state.session;
     const resumable = s && !s.done;
+    const nSaved = savedIds().length;
 
     const chapterRows = CHAPTERS.map((c) => {
       const qs = QUESTIONS.filter((q) => q.ch === c.n);
       let ans = 0, ok = 0, miss = 0;
       for (const q of qs) {
-        const h = state.history[q.id];
+        const h = hist[q.id];
         if (!h) continue;
         ans++;
         if (h.l === 1) ok++;
@@ -247,13 +620,7 @@
     }).join("");
 
     app.innerHTML = `
-      <header class="masthead">
-        <div class="brand">${LOGO}<div><h1>Green Belt Drill</h1><p>${QUESTIONS.length} CSSGB practice questions across ${CHAPTERS.length} chapters</p></div></div>
-        <div class="backup">
-          <button class="btn quiet small" data-act="backup" title="Download your saved questions and progress">Backup</button>
-          <button class="btn quiet small" data-act="restore" title="Load a backup file">Restore</button>
-        </div>
-      </header>
+      ${masthead()}
 
       ${resumable ? `<section class="resume" aria-label="Unfinished quiz">
           <p><b>${esc(s.title)}</b><br>Question ${s.i + 1} of ${s.ids.length}, ${sessionResults(s).reduce((a, b) => a + b, 0)} right so far</p>
@@ -271,7 +638,7 @@
 
       <nav class="quick" aria-label="Quick start">
         <button class="btn primary" data-act="mixed"><b>Mixed ${state.settings.mixedSize}</b><small>Random from all chapters</small></button>
-        <button class="btn" data-act="saved"><b>Saved ${state.saved.length}</b><small>Review or practice</small></button>
+        <button class="btn" data-act="saved"><b>Saved ${nSaved}</b><small>Review or practice</small></button>
         <button class="btn" data-act="missed" ${missedIds.length ? "" : "disabled"}><b>Missed ${missedIds.length}</b><small>Wrong on last try</small></button>
       </nav>
 
@@ -292,7 +659,7 @@
           <select id="mixed" data-set="mixedSize">${[10, 25, 50, 100].map((n) => `<option ${Number(state.settings.mixedSize) === n ? "selected" : ""}>${n}</option>`).join("")}</select></div>
       </section>
 
-      <p class="footnote">Progress and saved questions stay in this browser. To move them to another device, use Backup here and Restore there.</p>
+      <p class="footnote">Every answer, saved question and setting is stored as you go. <button class="linkish" data-act="sync">Sync and backup</button></p>
 
       <div class="startbar"><div class="inner">
         <p>${sel.size ? `${plural(sel.size, "chapter")} selected, ${selCount} questions` : "Tick chapters to practice them"}</p>
@@ -314,7 +681,7 @@
 
   function renderQuiz({ justAnswered = false } = {}) {
     const s = state.session;
-    if (!s) return go("home");
+    if (!s || s.done) return go("home");
     const id = s.ids[s.i];
     const q = BY_ID.get(id);
     const perm = s.perm[id];
@@ -430,7 +797,7 @@
   }
 
   function renderSaved() {
-    const ids = state.saved.filter((id) => BY_ID.has(id));
+    const ids = savedIds();
     const sorted = ids.slice().sort((a, b) => {
       const qa = BY_ID.get(a), qb = BY_ID.get(b);
       return qa.ch - qb.ch || qa.n - qb.n;
@@ -445,18 +812,58 @@
            <button class="btn primary" data-act="home">Pick chapters</button></div>`}`;
   }
 
+  function syncStatusHtml() {
+    const { login, gistUrl, lastSync, status } = Sync.info();
+    if (!Sync.enabled()) {
+      return `<p class="status-line warn"><i aria-hidden="true"></i>Sync is off. Your progress is only in this browser.</p>`;
+    }
+    const line =
+      status.s === "error" ? `<p class="status-line bad"><i aria-hidden="true"></i>${esc(status.msg || "Sync problem.")}</p>`
+      : status.s === "offline" ? `<p class="status-line warn"><i aria-hidden="true"></i>Offline. Everything is saved in this browser and will go to GitHub when you're back online.</p>`
+      : status.s === "syncing" || status.s === "pending" ? `<p class="status-line"><i aria-hidden="true"></i>Saving to GitHub…</p>`
+      : `<p class="status-line good"><i aria-hidden="true"></i>Sync is on${login ? ` for <b>${esc(login)}</b>` : ""}.${lastSync ? ` Last saved to GitHub ${esc(clock(lastSync))}.` : ""}</p>`;
+    return `${line}
+      <p class="muted-small">Stored in a secret gist in your GitHub account${gistUrl ? `: <a href="${esc(gistUrl)}" target="_blank" rel="noopener">view the file</a>` : ""}.</p>
+      <div class="actions"><button class="btn" data-act="sync-now">Sync now</button><button class="btn quiet" data-act="sync-off">Turn off sync on this device</button></div>`;
+  }
+
+  function renderSync() {
+    const hist = historyMap();
+    const total = state.attempts.length;
+    const tokenUrl = "https://github.com/settings/tokens/new?scopes=gist&description=Green%20Belt%20Drill%20sync";
+    app.innerHTML = `
+      <div class="quizbar"><button class="btn quiet small" data-act="home">Chapters</button><span class="where">Sync and backup</span><span></span></div>
+      <div class="section-head"><h2>Sync and backup</h2></div>
+
+      <section class="panel">
+        <h3>What's being kept</h3>
+        <p>${plural(total, "answer")} across ${plural(Object.keys(hist).length, "question")}, ${plural(savedIds().length, "saved question")}, your settings, and the quiz you're in. Every answer is kept with its time and the choice you picked.</p>
+        <div id="sync-status">${syncStatusHtml()}</div>
+      </section>
+
+      ${Sync.enabled() ? "" : `<section class="panel">
+        <h3>Turn on sync with GitHub</h3>
+        <p>The browser alone can lose data (cleared history, Safari's 7-day cleanup, a new phone). Sync keeps a copy in your GitHub account and lets you continue on any device. You do this once per device.</p>
+        <ol class="steps">
+          <li><a class="btn small" href="${tokenUrl}" target="_blank" rel="noopener">Open GitHub's token page</a><br>The note and the <b>gist</b> box are filled in for you. Set <b>Expiration</b> to <b>No expiration</b>, leave every other box unticked, then press <b>Generate token</b> and copy it.</li>
+          <li><label for="token">Paste the token here</label>
+            <div class="token-row"><input id="token" type="password" autocomplete="off" spellcheck="false" placeholder="ghp_…"><button class="btn primary" data-act="sync-on">Turn on sync</button></div>
+            <span class="muted-small" id="sync-msg" role="status"></span></li>
+        </ol>
+        <p class="muted-small">The token can only read and write your gists. It is kept in this browser and sent only to GitHub. On another device, paste the same token (or a new one) and it will pick up the same progress.</p>
+      </section>`}
+
+      <section class="panel">
+        <h3>Backup file</h3>
+        <p>Download everything as a file, or load a file back in. Loading merges with what's here; nothing is overwritten.</p>
+        <div class="actions"><button class="btn" data-act="backup">Download backup</button><button class="btn quiet" data-act="restore">Load a backup file</button></div>
+      </section>`;
+  }
+
   /* ---------------- backup / restore ---------------- */
   function backup() {
-    const data = {
-      app: "green-belt-drill",
-      version: 1,
-      exported: new Date().toISOString(),
-      saved: state.saved,
-      history: state.history,
-      recent: state.recent,
-      settings: state.settings,
-    };
-    const blob = new Blob([JSON.stringify(data, null, 1)], { type: "application/json" });
+    const data = { app: "green-belt-drill", v: 2, exported: new Date().toISOString(), data: state };
+    const blob = new Blob([JSON.stringify(data)], { type: "application/json" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
     a.download = `green-belt-drill-backup-${new Date().toISOString().slice(0, 10)}.json`;
@@ -475,28 +882,20 @@
     restoreInput.value = "";
     if (!file) return;
     try {
-      const data = JSON.parse(await file.text());
-      if (data.app !== "green-belt-drill") throw new Error("not ours");
-      const savedIn = (data.saved || []).filter((id) => BY_ID.has(id));
-      state.saved = Array.from(new Set([...state.saved, ...savedIn]));
-      for (const [id, h] of Object.entries(data.history || {})) {
-        if (!BY_ID.has(id) || !h || typeof h.s !== "number") continue;
-        const mine = state.history[id];
-        if (!mine || h.s > mine.s) state.history[id] = { s: h.s, c: Number(h.c) || 0, l: h.l === 1 ? 1 : h.l === 0 ? 0 : null };
-      }
-      if (Array.isArray(data.recent) && data.recent.length > state.recent.length) {
-        state.recent = data.recent.filter((r) => r === 0 || r === 1).slice(-RECENT_MAX);
-      }
-      persist();
-      toast(`Restored. ${plural(state.saved.length, "saved question")}.`);
-      route();
+      const raw = JSON.parse(await file.text());
+      if (raw.app !== "green-belt-drill") throw new Error("not ours");
+      const before = state.attempts.length;
+      state = mergeStates(state, sanitize(raw));
+      commit();
+      toast(`Backup loaded. ${plural(state.attempts.length - before, "answer")} added.`);
+      rerender();
     } catch (e) {
-      toast("That file isn't a Green Belt Drill backup. Choose the .json file made by Backup.");
+      toast("That file isn't a Green Belt Drill backup. Choose the .json file made by Download backup.");
     }
   });
 
   /* ---------------- events ---------------- */
-  app.addEventListener("click", (e) => {
+  app.addEventListener("click", async (e) => {
     const t = e.target.closest("[data-act]");
     if (!t || t.disabled) return;
     const act = t.dataset.act;
@@ -509,12 +908,15 @@
         break;
       case "unsave": toggleSave(t.dataset.id); renderSaved(); break;
       case "home": go("home"); break;
+      case "sync": go("sync"); break;
       case "resume": go("quiz"); break;
       case "saved": go("saved"); break;
-      case "practice-saved": startSession("Saved questions", state.saved.slice()); break;
-      case "missed":
-        startSession("Missed questions", QUESTIONS.filter((q) => state.history[q.id] && state.history[q.id].l === 0).map((q) => q.id));
+      case "practice-saved": startSession("Saved questions", savedIds()); break;
+      case "missed": {
+        const hist = historyMap();
+        startSession("Missed questions", QUESTIONS.filter((q) => hist[q.id] && hist[q.id].l === 0).map((q) => q.id));
         break;
+      }
       case "mixed": {
         const size = Number(state.settings.mixedSize) || 25;
         const ids = shuffle(QUESTIONS.map((q) => q.id)).slice(0, size);
@@ -529,8 +931,8 @@
         startSession(title, ids);
         break;
       }
-      case "sel-all": state.selected = CHAPTERS.map((c) => c.n); persist(); renderHome(); break;
-      case "sel-none": state.selected = []; persist(); renderHome(); break;
+      case "sel-all": state.selected = CHAPTERS.map((c) => c.n); state.selectedT = now(); commit(); renderHome(); break;
+      case "sel-none": state.selected = []; state.selectedT = now(); commit(); renderHome(); break;
       case "retry-missed":
         if (s) startSession("Missed in last quiz", s.ids.filter((id) => id in s.picks && s.picks[id] !== BY_ID.get(id).a));
         break;
@@ -539,6 +941,25 @@
         break;
       case "backup": backup(); break;
       case "restore": restoreInput.click(); break;
+      case "sync-now": Sync.run(); break;
+      case "sync-off": Sync.disconnect(); renderSync(); toast("Sync turned off on this device. Your GitHub copy is untouched."); break;
+      case "sync-on": {
+        const input = document.getElementById("token");
+        const msg = document.getElementById("sync-msg");
+        const token = input ? input.value.trim() : "";
+        if (!token) { if (msg) msg.textContent = "Paste your token first."; return; }
+        t.disabled = true;
+        if (msg) msg.textContent = "Connecting to GitHub…";
+        const r = await Sync.connect(token);
+        if (r.ok) {
+          renderSync();
+          toast(r.reused ? "Sync on. Progress from your other devices was merged in." : "Sync on. Your progress is now saved to GitHub.");
+        } else {
+          t.disabled = false;
+          if (msg) msg.textContent = r.msg;
+        }
+        break;
+      }
     }
   });
 
@@ -549,7 +970,8 @@
       const sel = new Set(state.selected);
       t.checked ? sel.add(n) : sel.delete(n);
       state.selected = CHAPTERS.map((c) => c.n).filter((c) => sel.has(c));
-      persist();
+      state.selectedT = now();
+      commit();
       const y = window.scrollY;
       renderHome();
       window.scrollTo(0, y);
@@ -560,19 +982,27 @@
       if (t.type === "checkbox") state.settings[key] = t.checked;
       else if (key === "target") state.settings.target = Math.min(100, Math.max(0, Math.round(Number(t.value) || 0)));
       else state.settings[key] = Number(t.value);
-      persist();
+      state.settingsT = now();
+      commit();
       const y = window.scrollY;
       renderHome();
       window.scrollTo(0, y);
     }
   });
 
+  app.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && e.target.id === "token") {
+      e.preventDefault();
+      const b = app.querySelector('[data-act="sync-on"]');
+      if (b) b.click();
+    }
+  });
+
   document.addEventListener("keydown", (e) => {
     if (e.metaKey || e.ctrlKey || e.altKey) return;
     if (/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName)) return;
-    const view = location.hash.replace(/^#\/?/, "") || "home";
     const s = state.session;
-    if (view !== "quiz" || !s || s.done) return;
+    if (currentView() !== "quiz" || !s || s.done) return;
     const id = s.ids[s.i];
     const answered = id in s.picks;
     const k = e.key.toLowerCase();
@@ -591,5 +1021,8 @@
     }
   });
 
+  // Save migrated data in the new format straight away.
+  writeLocal();
   route();
+  Sync.start();
 })();

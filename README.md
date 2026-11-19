@@ -16,7 +16,13 @@ A practice quiz for the ASQ Certified Six Sigma Green Belt (CSSGB) exam: 654 mul
 
 ## Where progress is stored
 
-Saved questions and history live in the browser's local storage on each device. Use **Backup** to download them as a `.json` file and **Restore** on another device or browser to merge them in.
+Everything is kept: every answer (with its time and the choice picked), saved and unsaved questions, settings, chapter selection and the quiz in progress.
+
+1. **In the browser**, written the moment anything changes. The app also asks the browser to treat the storage as persistent.
+2. **In a secret gist in your GitHub account**, once sync is turned on (Sync screen → paste a token with only the `gist` scope). Changes are pushed a few seconds after they happen and again when the tab is hidden or closed. On load, and whenever the tab comes back into view, the app pulls the gist and merges it, so you can switch between laptop and phone.
+3. **As a backup file** you can download and load back in from the Sync screen.
+
+Merging never loses answers: attempts from all devices are combined; for saved questions, settings and the current quiz, the most recent change wins.
 
 ## Files
 
