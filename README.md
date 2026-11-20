@@ -4,6 +4,12 @@ A practice quiz for the ASQ Certified Six Sigma Green Belt (CSSGB) exam: 654 mul
 
 **Live site:** https://munzirkhanrahi.github.io/cssgb-quiz/
 
+## Visual study guide: Define phase
+
+**Live:** https://munzirkhanrahi.github.io/cssgb-quiz/learn/
+
+Interactive, visual notes for handbook Chapters 4–9 (BoK II.A–II.F): a BoK map shaded by cognitive level, a working tool for every calculation (DPMO, RTY, sigma level and Cp/Cpk on a live normal curve, CPI/SPI, critical path, QFD column weights, prioritization matrix, multivoting), classification drills, a traps lab of close-difference pairs, a printable formula sheet, a binder tab map with handbook corrections, and a blind check at the end of each chapter. Files live in `learn/` (no build step).
+
 ## What it does
 
 - Practice one chapter, several chapters, or a random mixed set (10, 25, 50 or 100 questions).
@@ -32,6 +38,7 @@ Merging never loses answers: attempts from all devices are combined; for saved q
 | `questions.js` | Question bank generated from the PDF |
 | `tools/parse.py` | Extracts questions, options, answers and explanations from the PDF text |
 | `tools/build_bank.py` | Turns the parsed JSON into `questions.js` |
+| `learn/` | Visual study guide for the Define phase (`index.html`, `learn.css`, `js/`) |
 
 ## Regenerating the question bank
 
