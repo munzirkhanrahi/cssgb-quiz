@@ -4,11 +4,11 @@ A practice quiz for the ASQ Certified Six Sigma Green Belt (CSSGB) exam: 654 mul
 
 **Live site:** https://munzirkhanrahi.github.io/cssgb-quiz/
 
-## Visual study guide: Define, Improve and Control
+## Visual study guide: Part I, Define, Improve and Control
 
 **Live:** https://munzirkhanrahi.github.io/cssgb-quiz/learn/
 
-Interactive, visual notes for handbook Chapters 4–9 (Define, BoK II.A–II.F), 19–21 (Improve, V.A–V.C) and 22–24 (Control, VI.A–VI.C): a BoK map shaded by cognitive level, a working tool for every calculation (DPMO, RTY, sigma level, Cp/Cpk, CPI/SPI, critical path, QFD weights; 2³ DOE effects with main-effect and interaction plots, aliasing, takt time and line balance, capacity, Little's law, SMED; control limits for X̄–R, X̄–s, I–MR, p, np, c and u charts, a run-rules lab, rational subgrouping and tampering simulations, OEE), classification drills, a traps lab of close-difference pairs, a printable formula sheet with the control chart constants, a binder tab map with handbook corrections, and a blind check at the end of each chapter. Files live in `learn/` (no build step).
+Interactive, visual notes for handbook Chapters 1–3 (Six Sigma and the organization, BoK I.A–I.C), 4–9 (Define, BoK II.A–II.F), 19–21 (Improve, V.A–V.C) and 22–24 (Control, VI.A–VI.C): a BoK map shaded by cognitive level, a working tool for every calculation (expected profit, cost-of-quality curves, drum-buffer-rope, a value stream timeline, an FMEA risk-priority lab; DPMO, RTY, sigma level, Cp/Cpk, CPI/SPI, critical path, QFD weights; 2³ DOE effects with main-effect and interaction plots, aliasing, takt time and line balance, capacity, Little's law, SMED; control limits for X̄–R, X̄–s, I–MR, p, np, c and u charts, a run-rules lab, rational subgrouping and tampering simulations, OEE), classification drills, a traps lab of close-difference pairs, a printable formula sheet with the control chart constants, a binder tab map with handbook corrections, and a blind check at the end of each chapter. Files live in `learn/` (no build step).
 
 ## What it does
 
@@ -38,7 +38,7 @@ Merging never loses answers: attempts from all devices are combined; for saved q
 | `questions.js` | Question bank generated from the PDF |
 | `tools/parse.py` | Extracts questions, options, answers and explanations from the PDF text |
 | `tools/build_bank.py` | Turns the parsed JSON into `questions.js` |
-| `learn/` | Visual study guide for the Define, Improve and Control phases (`index.html`, `learn.css`, `js/`) |
+| `learn/` | Visual study guide for Part I and the Define, Improve and Control phases (`index.html`, `learn.css`, `js/`) |
 
 ## Regenerating the question bank
 

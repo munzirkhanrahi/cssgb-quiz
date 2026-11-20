@@ -79,7 +79,7 @@ G.chapter({
         </ul>
         <h3>Theory of constraints (Goldratt)</h3>
         <p>The process can go no faster than its <b>bottleneck</b>; a delay there absorbs any slack, just as on a project's critical path. Limit inventory to what the bottleneck can process. Relieve it by reducing discretionary demand on it, adding capacity or speed, raising skill, automating, simplifying, or moving preparation upstream.</p>
-        <p><b>Goldratt's five focusing steps</b> (not listed in Chapter 21, but they appear in ASQ-style practice items): <b>identify</b> the constraint, <b>exploit</b> it (get the most from it as is), <b>subordinate</b> everything else to it, <b>elevate</b> it (add capacity), then <b>repeat</b> — without letting inertia become the new constraint.</p>
+        <p><b>Goldratt's five focusing steps</b> (listed in Chapter 2, p. 40, and tested in ASQ-style practice items): <b>identify</b> the constraint, <b>exploit</b> it (get the most from it as is), <b>subordinate</b> everything else to it, <b>elevate</b> it (add capacity), then <b>repeat</b> — without letting inertia become the new constraint.</p>
         ${G.trap(`<p>A <b>capacity-constrained resource</b> is at risk of becoming a bottleneck and can hurt throughput even when operations are not at full capacity — people, equipment, suppliers or policies. A <b>bottleneck</b> already sets the pace.</p>`)}`
     },
     {
@@ -87,7 +87,7 @@ G.chapter({
       html: `
         ${G.table(["", "Kaizen", "Kaizen blitz (event)", "Kaikaku"], [
           ["Meaning", "Continuous improvement", "A rapid, focused kaizen", "Innovation, radical change"],
-          ["Pace", "Small, frequent, over years", "About one week", "Major redesign"],
+          ["Pace", "Small, frequent, over years", "Three to five days (p. 38) to about a week (p. 381)", "Major redesign"],
           ["Character", "Evolutionary, low cost, low risk", "Trained cross-functional team collects data, analyzes and implements immediately", "Revolutionary; usually initiated by management, often triggered externally"],
           ["Relationship", "Keeps gains from decaying", "Accelerates kaizen", "Sets a new base for kaizen"]
         ])}
@@ -96,7 +96,7 @@ G.chapter({
         <p>The gemba is the real place where work happens. The economy-of-motion checklist: eliminate unnecessary movement, reduce eye movement, combine operations, improve the workplace layout, and improve tools, jigs and machines. Because about 85% of cost, quality and delivery conditions are set in design and planning, gemba kaizen is a starting point for kaizen upstream.</p>
         <p><b>Levels of kaizen:</b> point (individual workstation), mini (work team), flow (a full value stream, led by a project manager), process (a specific process or subprocess) and supply chain (several companies).</p>
         <p><b>Kaizen events succeed with:</b> a charter, critical success factors, the right scope, a link to the business plan, team selection, follow-through, presenting results, communication and management commitment.</p>
-        ${G.flag(`<p>p. 381 says kaikaku “commonly refers to a focused kaizen action … over the course of a week, referred to as a kaizen blitz”, which blurs two terms the same page distinguishes. Use the clean distinction: <b>kaizen</b> = incremental; <b>kaizen blitz</b> = intensive one-week event; <b>kaikaku</b> = radical, management-led change.</p>`)}`
+        ${G.flag(`<p>p. 381 (like p. 38) says kaikaku “commonly refers to a focused kaizen action … over the course of a week, referred to as a kaizen blitz or kaizen event”. The Lean Enterprise Institute keeps them apart: kaikaku is radical improvement of a value stream (breakthrough kaizen), and a kaizen workshop is a group event commonly lasting five days. The BoK only asks you to distinguish <b>kaizen</b> (small, ongoing steps) from the <b>kaizen blitz</b> (a short, intensive team event); treat kaikaku as breakthrough change and don't expect an item to hinge on blitz vs kaikaku.</p>`, "Calibration note")}`
     }
   ],
   check: [
@@ -117,9 +117,9 @@ G.chapter({
       why: "Setup time is the total elapsed time from the last piece of one product to the first good piece of the next.",
       d: { 0: "Restarting is not enough — the first piece must be good.", 1: "Not tied to the changeover.", 2: "Measures the crew, not the stoppage." }, ref: "378" },
     { q: "A trained, cross-functional team spends one week collecting data on a returns cell, analyzing it and implementing the improvements immediately. This is a:",
-      o: ["Kaizen blitz", "Kaikaku", "Point kaizen", "Value-stream map"], a: 0,
+      o: ["Kaizen blitz", "Pilot test", "Point kaizen", "Value-stream map"], a: 0,
       why: "A kaizen blitz compresses kaizen into an intensive event of about a week.",
-      d: { 1: "Kaikaku is radical, management-initiated redesign.", 2: "Point kaizen is one individual at one workstation.", 3: "A VSM is a diagnostic picture, not an improvement event." }, ref: "380–381" },
+      d: { 1: "A pilot trials a chosen solution on a limited scale before rollout; it is not an improvement event.", 2: "Point kaizen is one individual at one workstation.", 3: "A VSM is a diagnostic picture, not an improvement event." }, ref: "380–381" },
     { q: "Under the theory of constraints, inventory at each process point should be limited to:",
       o: ["The economic order quantity", "What the bottleneck can process", "Two days of customer demand", "The capacity of the fastest operation"], a: 1,
       why: "The process runs at the bottleneck's pace, so inventory should be regulated to what the bottleneck can process.",

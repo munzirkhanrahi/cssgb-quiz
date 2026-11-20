@@ -82,6 +82,10 @@
   /* ---------- tabs ---------- */
   const TABS = [
     { id: "home", n: "Map", l: "Start here", c: "--cx", word: true },
+    { gap: "Organization" },
+    { id: "ch1", n: "1", l: "Goals, history", c: "--c1" },
+    { id: "ch2", n: "2", l: "Lean", c: "--c2" },
+    { id: "ch3", n: "3", l: "DFSS, FMEA", c: "--c3" },
     { gap: "Define" },
     { id: "ch4", n: "4", l: "Project ID", c: "--c4" },
     { id: "ch5", n: "5", l: "VOC", c: "--c5" },

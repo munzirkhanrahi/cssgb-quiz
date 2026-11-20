@@ -3,13 +3,18 @@
   "use strict";
   const { $, $$ } = G;
   const CC = {};
-  [4, 5, 6, 7, 8, 9, 19, 20, 21, 22, 23, 24].forEach((n) => { CC["ch" + n] = "--c" + n; });
-  const PHASE_OF = (ch) => (+ch.slice(2) <= 9 ? "define" : +ch.slice(2) <= 21 ? "improve" : "control");
+  [1, 2, 3, 4, 5, 6, 7, 8, 9, 19, 20, 21, 22, 23, 24].forEach((n) => { CC["ch" + n] = "--c" + n; });
+  const PHASE_OF = (ch) => (+ch.slice(2) <= 3 ? "org" : +ch.slice(2) <= 9 ? "define" : +ch.slice(2) <= 21 ? "improve" : "control");
   const secTitle = (ch, sec) => G.chapters[ch].sections.find((s) => s.id === sec).title;
   const link = (href, label, primary) => `<a class="btn${primary ? " primary" : ""}" href="${href}" style="display:inline-flex;align-items:center;text-decoration:none">${label}</a>`;
 
   /* ---------- Home ---------- */
   const PHASES = [
+    { id: "org", name: "Organization", label: "Six Sigma and the organization", q: 11, chs: "1–3", start: "ch1", rows: [
+      ["ch1", "I.A", [["I.A.1", "Value of six sigma", "Understand", "value"], ["I.A.2", "Goals, SMART, inputs", "Understand", "goals"], ["I.A.3", "Drivers & metrics", "Understand", "drivers"]]],
+      ["ch2", "I.B", [["I.B.1", "Lean concepts", "Apply", "concepts"], ["I.B.2", "Value stream mapping", "Understand", "vsm"]]],
+      ["ch3", "I.C", [["I.C.1", "DMADV & IDOV", "Understand", "roadmaps"], ["I.C.2", "Basic FMEA", "Analyze", "rpn"], ["I.C.3", "Design vs process FMEA", "Apply", "types"]]]
+    ]},
     { id: "define", name: "Define", q: 20, chs: "4–9", start: "ch4", rows: [
       ["ch4", "II.A", [["II.A.1", "Project selection", "Understand", "select"], ["II.A.2", "Process elements", "Analyze", "elements"], ["II.A.3", "Benchmarking", "Understand", "bench"], ["II.A.4", "SIPOC", "Analyze", "sipoc"], ["II.A.5", "Owners & stakeholders", "Apply", "owners"]]],
       ["ch5", "II.B", [["II.B.1", "Customer identification", "Apply", "ident"], ["II.B.2", "Customer data", "Apply", "data"], ["II.B.3", "QFD, CTx, Kano", "Apply", "qfd"]]],
@@ -30,6 +35,18 @@
     ]}
   ];
   const MUST = {
+    org: [
+      ["ch3", "rpn", "RPN = S × O × D. Detection runs backwards (easy to detect = low); equal RPNs go to the higher severity."],
+      ["ch2", "toc", "Theory of constraints: identify, exploit, subordinate, elevate, repeat — “measure” is the distractor."],
+      ["ch1", "goals", "Expected profit = Σ profit × probability. Hoshin links goals to strategy; SMART shapes one goal."],
+      ["ch1", "pioneers", "Attribution: Juran trilogy, Deming's Fourteen Points, Crosby's zero defects, Shewhart's PDCA, Taguchi's loss function."],
+      ["ch2", "waste", "Name the waste from its cause: workstation layout → motion; function-based plant → transportation; running ahead → overproduction."],
+      ["ch2", "vsm", "Value stream analysis finds inventory first; a value stream runs from the supplier's supplier to the customer's customer."],
+      ["ch3", "verval", "Verification = specified requirements met; validation = requirements for the intended use met."],
+      ["ch3", "roadmaps", "DMADV designs what doesn't exist; IDOV's Optimize holds robust design; DMAIC improves what exists."],
+      ["ch3", "types", "Design FMEA: how the product can fail. Process FMEA: how making it can fail."],
+      ["ch2", "tools", "SMED = under 10 minutes; heijunka levels the mix; hoshin kanri deploys policy; gemba = the real place."]
+    ],
     define: [
       ["ch8", "dpmo", "DPMO needs opportunities per unit. Forgetting them is the most common wrong answer."],
       ["ch8", "rty", "RTY multiplies step yields; throughput yield is e^−DPU. Averages and minimums are distractors."],
@@ -53,7 +70,7 @@
       ["ch21", "smed", "SMED: move internal work to external first, then shrink what stays internal. Setup ends at the first good piece."],
       ["ch19", "terms", "Replication resets every run; repetition does not."],
       ["ch19", "fractional", "In a half fraction, a main effect is aliased with an interaction (C = AB)."],
-      ["ch21", "kaizen", "Kaizen = small steps; blitz = one-week event; kaikaku = radical, management-led change."],
+      ["ch21", "kaizen", "Kaizen = small, ongoing steps; kaizen blitz = a 3–5-day to one-week team event; kaikaku = breakthrough change."],
       ["ch20", "three", "Proof of concept → try-storming → pilot: feasible? → filter → ready to deploy?"]
     ],
     control: [
@@ -73,13 +90,13 @@
     title: "Phase map",
     render: () => `
       <h1>CSSGB, visually</h1>
-      <p class="lede">The Define, Improve and Control phases of the CSSGB Handbook — Chapters 4–9, 19–21 and 22–24, which together carry 51 of the 100 scored questions. Every topic pairs a picture or a working tool with the trap ASQ sets and the page to tab in your binder.</p>
-      <div class="row" style="margin-top:1rem">${PHASES.map((p) => link("#/" + p.start, `Start ${p.name} (Ch ${G.chapters[p.start].num})`, p.id === "define")).join("")}${link("#/traps", "Open the traps lab")}${link("#/binder", "See what to tab")}</div>
+      <p class="lede">Part I (Six Sigma and the organization) and the Define, Improve and Control phases of the CSSGB Handbook — Chapters 1–9 and 19–24, which together carry 62 of the 100 scored questions. Every topic pairs a picture or a working tool with the trap ASQ sets and the page to tab in your binder.</p>
+      <div class="row" style="margin-top:1rem">${PHASES.map((p) => link("#/" + p.start, `Start ${p.name} (Ch ${G.chapters[p.start].num})`, p.id === "org")).join("")}${link("#/traps", "Open the traps lab")}${link("#/binder", "See what to tab")}</div>
       <h2 style="margin-top:2rem">Where the depth is</h2>
       <p class="soft">Each tile is a BoK subtopic, shaded by the highest cognitive level ASQ will test. ASQ publishes phase totals, not a split by subtopic — so shading tells you <i>how</i> you'll be asked, not how often.</p>
       <div class="legend">${LEVELS.map(([l, d]) => `<span><i class="dot lvdot lv-${l}"></i>${l} — ${d}</span>`).join("")}</div>
       ${PHASES.map((p, pi) => `
-        <h3 class="phase-h">${p.name} phase · ${p.q} questions · Chapters ${p.chs}</h3>
+        <h3 class="phase-h">${p.label || p.name + " phase"} · ${p.q} questions · Chapters ${p.chs}</h3>
         <div class="map anim">${p.rows.map(([ch, bok, items], r) => `
           <div class="map-row">
             <a class="map-lab" href="#/${ch}" style="--tc: var(${CC[ch]})"><b>Ch ${G.chapters[ch].num} ${G.chapters[ch].title}</b><span>BoK ${bok}</span></a>
@@ -96,12 +113,30 @@
         ${G.tab("<p>What to tab or write in your handbook before exam day.</p>")}
         ${G.flag("<p>Where the handbook text or its scan is wrong, with the correct version.</p>")}
       </div>
-      <p>Each chapter ends with a <b>blind check</b>: answer everything, then see the key and why each wrong option is wrong. For volume, use <a href="../">Green Belt Drill</a> — 22 questions per Define chapter, 33 per Improve chapter and 30 per Control chapter.</p>
-      <p class="foot">Study notes in plain language from the ASQ CSSGB Handbook (Chapters 4–9 and 19–24) and the 2022 CSSGB Body of Knowledge. Progress is saved in this browser only.</p>`
+      <p>Each chapter ends with a <b>blind check</b>: answer everything, then see the key and why each wrong option is wrong. For volume, use <a href="../">Green Belt Drill</a> — 24 questions per Part I chapter, 22 per Define chapter, 33 per Improve chapter and 30 per Control chapter.</p>
+      <p class="foot">Study notes in plain language from the ASQ CSSGB Handbook (Chapters 1–9 and 19–24) and the 2022 CSSGB Body of Knowledge. Progress is saved in this browser only.</p>`
   });
 
   /* ---------- Traps lab ---------- */
   const TRAPS = [
+    ["ch1", "Deming's Fourteen Points vs Crosby's fourteen steps", ["Deming — Fourteen Points", "Management principles: constancy of purpose, cease dependence on inspection, drive out fear, eliminate slogans and quotas."], ["Crosby — fourteen steps", "An improvement program: management commitment, quality teams, cost of quality, zero defects day, do it all over again."], "“Zero defects” anywhere in the stem → Crosby.", "pioneers"],
+    ["ch1", "Juran's trilogy vs Feigenbaum's three steps", ["Juran trilogy", "Quality planning, quality control, quality improvement."], ["Feigenbaum's three steps", "Quality leadership, modern quality technology, organizational commitment."], "“Planning, control, improvement” is Juran.", "pioneers"],
+    ["ch1", "PDCA vs PDSA", ["PDCA", "Shewhart's cycle, as Deming credited it."], ["PDSA", "Deming's update — Check became Study."], "“Originator of PDCA” → Shewhart.", "pioneers"],
+    ["ch1", "Hoshin planning vs SMART goals", ["Hoshin planning", "Links company goals and work plans to long-term strategy through up to four five-year vision statements."], ["SMART goals", "How to word a single goal: specific, measurable, attainable, relevant, time-bound."], "Strategy deployment → Hoshin; goal wording → SMART.", "goals"],
+    ["ch1", "Leading vs lagging measures", ["Leading", "Measured upstream; helps achieve the objective (training completed, PM on schedule)."], ["Lagging", "Measured at the end of an event (profit, warranty claims)."], "A balanced scorecard needs both.", "drivers"],
+    ["ch1", "Traditional vs modern cost-of-quality curves", ["Traditional (Fig. 1.5)", "Conformance cost soars near perfection; the cheapest point stops short of 100% good."], ["Modern (Fig. 1.6)", "Total cost keeps falling all the way to 100% good."], "Six Sigma assumes the modern picture.", "coq"],
+    ["ch2", "Value-added vs non-value-added inspection", ["Value-added", "A test the customer pays for — fire-testing furnaces for the CSA listing."], ["Non-value-added", "Inspection because the process is incapable — fix the process."], "Is the customer willing to pay for it?", "concepts"],
+    ["ch2", "Prevention vs detection mistake-proofing", ["Prevention type", "The error cannot be made (one-way plug, orientation fixture)."], ["Detection type", "Alerts immediately after the error (lights-on alarm, automatic gauge)."], "If the mistake already happened, it is detection.", "tools"],
+    ["ch2", "Heijunka vs hoshin kanri", ["Heijunka", "Level the production schedule by mixing variants in small batches."], ["Hoshin kanri", "Policy deployment: align strategy, tactics and floor-level work."], "Schedule → heijunka; strategy → hoshin.", "tools"],
+    ["ch2", "Drum vs rope vs buffer", ["Drum", "The constraint, the slowest process; it sets the pace."], ["Rope and buffer", "The rope ties material release to the drum; the buffer is the slack in front of the drum, sized by how dependable the processes are."], "The drum is not the first operation.", "toc"],
+    ["ch2", "Excess motion vs transportation", ["Motion", "People reaching, walking, searching — poor workstation layout."], ["Transportation", "Material moved by conveyors and forklifts — function-based plant layout."], "Who or what is moving?", "waste"],
+    ["ch3", "DMAIC vs DMADV", ["DMAIC", "Improve an existing process."], ["DMADV", "Design a new product or process, or redesign an optimized one that still can't meet needs."], "Nothing exists yet → DMADV.", "roadmaps"],
+    ["ch3", "Verification vs validation", ["Verification", "Objective evidence that specified requirements are fulfilled (ISO 9000:2015, 3.8.12)."], ["Validation", "Objective evidence that requirements for a specific intended use are fulfilled (3.8.13)."], "Spec → verification; intended use → validation.", "verval"],
+    ["ch3", "MTTF vs MTBF", ["MTTF", "Mean time to failure — non-repairable items; 1/λ."], ["MTBF", "Mean time between failures — repairable items; 1/λ."], "Replace it → MTTF; repair it → MTBF.", "dfx"],
+    ["ch3", "Design for performance vs robustness", ["Performance", "Aggressive benchmarks or breakthroughs on a consistent basis."], ["Robustness", "Life-cycle tests; suppliers document MTTF or MTBF."], "“Breakthrough” → performance.", "dfx"],
+    ["ch3", "Severity and occurrence vs detection scales", ["Severity, occurrence", "Worse or more frequent = higher number."], ["Detection", "Harder to detect = higher number; obvious every time = 1–2."], "Detection runs backwards.", "rpn"],
+    ["ch3", "RPN vs criticality", ["RPN", "S × O × D, range 1–1,000."], ["Criticality", "S × O, used in some industries."], "A product of two ratings is criticality.", "rpn"],
+    ["ch3", "Design FMEA vs process FMEA", ["Design FMEA", "How the product design can fail; block diagram; before tooling is cut."], ["Process FMEA", "How manufacturing or assembly can fail; flowchart and walk-through."], "The thing, or the making of the thing?", "types"],
     ["ch4", "Process owner vs stakeholder", ["Process owner", "Formally responsible for defining, running, maintaining and improving one process; named in procedures or job descriptions."], ["Stakeholder", "Anyone with a vested interest: operators, customers, suppliers, designers, maintenance, investors, communities."], "Every owner is a stakeholder. When the stem mentions documented responsibility or approval authority, choose owner.", "owners"],
     ["ch4", "SIPOC vs detailed process map", ["SIPOC", "High level, about four to seven steps, Define phase; built process → outputs → inputs → customers → suppliers."], ["Process map / flowchart", "Every step, decision and handoff — Measure phase detail."], "“First step of a SIPOC” is the process, not the suppliers.", "sipoc"],
     ["ch4", "Competitive vs functional benchmarking", ["Competitive", "Direct competitors in your industry; forces an external view."], ["Functional", "Similar function in any industry; many willing partners; best-practice hunting."], "Benchmarking only in your industry puts you second at best.", "bench"],
@@ -147,7 +182,7 @@
     ["ch20", "Try-storming vs brainstorming", ["Try-storming", "Brainstorming plus action: quick prototypes, simulations or role-plays that vet the feasible ideas."], ["Brainstorming", "Idea generation only."], "Try-storming filters ideas; it does not generate a second round.", "three"],
     ["ch21", "Takt time vs cycle time", ["Takt time", "Available time ÷ customer demand — the pace demand requires."], ["Cycle time", "How long a process step actually takes."], "Takt is set by demand, never by the station.", "takt"],
     ["ch21", "Internal vs external setup", ["Internal setup", "Can be done only while the machine is stopped."], ["External setup", "Can be done while the machine is still running the previous job."], "External is about timing, not about who does the work.", "smed"],
-    ["ch21", "Kaizen vs kaizen blitz", ["Kaizen", "Small, frequent, low-cost improvement sustained over years."], ["Kaizen blitz", "An intensive event of about a week: collect data, analyze, implement at once."], "Kaikaku is a third term: radical, management-led change (p. 381 blurs it with the blitz).", "kaizen"],
+    ["ch21", "Kaizen vs kaizen blitz", ["Kaizen", "Small, frequent, low-cost improvement sustained over years."], ["Kaizen blitz", "An intensive team event of three to five days to a week: collect data, analyze, implement at once."], "Kaikaku = breakthrough change; the handbook (pp. 38, 381) says North Americans call it a kaizen event or blitz.", "kaizen"],
     ["ch21", "Bottleneck vs capacity-constrained resource", ["Bottleneck", "Already sets the pace of the whole process."], ["Capacity-constrained resource", "At risk of becoming a bottleneck; can hurt throughput even below full capacity."], "Limit inventory to what the bottleneck can process.", "smed"],
     ["ch21", "Push vs pull", ["Push", "Produce to a schedule or forecast regardless of downstream need; WIP builds."], ["Pull", "Customer demand triggers production; replenish only what is consumed (kanban)."], "Lower WIP means shorter lead time (Little's law).", "tools"],
     ["ch21", "Poka-yoke vs inspection", ["Poka-yoke", "Makes the error impossible, or obvious the moment it happens."], ["Inspection", "Finds defects after they are made (appraisal)."], "Mistake-proofing prevents; it is not after-the-fact checking.", "tools"],
@@ -171,13 +206,13 @@
     ["ch24", "Andon vs kanban", ["Andon", "A visual or audible signal of process status that calls for help."], ["Kanban", "A signal to replenish or produce when parts are consumed."], "Status and help → andon. Material → kanban.", "visual"]
   ];
   let filt = "all";
-  const PH_BTNS = [["all", "All"], ["define", "Define"], ["improve", "Improve"], ["control", "Control"]];
-  const CH_OF = { define: ["ch4", "ch5", "ch6", "ch7", "ch8", "ch9"], improve: ["ch19", "ch20", "ch21"], control: ["ch22", "ch23", "ch24"] };
+  const PH_BTNS = [["all", "All"], ["org", "Organization"], ["define", "Define"], ["improve", "Improve"], ["control", "Control"]];
+  const CH_OF = { org: ["ch1", "ch2", "ch3"], define: ["ch4", "ch5", "ch6", "ch7", "ch8", "ch9"], improve: ["ch19", "ch20", "ch21"], control: ["ch22", "ch23", "ch24"] };
   G.page("traps", {
     title: "Traps lab",
     render: () => `
       <h1>Traps lab</h1>
-      <p class="lede">ASQ's favourite distractor is the correct definition of the wrong concept. These are the pairs it builds them from, across Define, Improve and Control.</p>
+      <p class="lede">ASQ's favourite distractor is the correct definition of the wrong concept. These are the pairs it builds them from, across Part I, Define, Improve and Control.</p>
       <div class="row noprint" style="margin:1rem 0 .4rem"><span class="seg" role="group" aria-label="Filter by phase" data-ph></span><span class="soft small" data-n></span></div>
       <div class="row noprint" style="margin:0 0 1rem"><span class="seg" role="group" aria-label="Filter by chapter" data-chs></span></div>
       <div data-cards></div>`,
@@ -210,6 +245,13 @@
 
   /* ---------- Formula sheet ---------- */
   const F = {
+    org: [
+      ["Expected profit", "EP = Σ (profit × probability)", "Table 1.2: 2(.6) + 2(.1) + 7(.05) − 3(.25) = $1.0M", "ch1", "goals"],
+      ["Risk priority number", "RPN = S × O × D", "8 × 3 × 6 = 144 · range 1–1,000", "ch3", "rpn"],
+      ["Criticality", "S × O", "8 × 3 = 24", "ch3", "rpn"],
+      ["Failure rate and mean life", "MTBF (repairable) = MTTF (non-repairable) = 1 ÷ λ", "4 failures in 50,000 h → λ = 0.00008 → 12,500 h", "ch3", "dfx"],
+      ["VSM lead time", "Production lead time = Σ inventory ÷ daily demand", "8,900 ÷ 460 = 19.3 days vs 187 s value-added · ladder from Rother and Shook", "ch2", "vsm"]
+    ],
     define: [
       ["Defects per unit", "DPU = D ÷ U", "165 ÷ 40,000 = 0.004125", "ch8", "dpmo"],
       ["Defects per opportunity", "DPO = D ÷ (U × O)", "165 ÷ (40,000 × 6) = 0.0006875", "ch8", "dpmo"],
@@ -269,7 +311,7 @@
     title: "Formula sheet",
     render: () => `
       <h1>Formula sheet</h1>
-      <p class="lede">Every calculation in the Define, Improve and Control chapters, each with a worked example from the handbook or this guide. Print it and file it in your binder.</p>
+      <p class="lede">Every calculation in the Part I, Define, Improve and Control chapters, each with a worked example from the handbook or this guide. Print it and file it in your binder.</p>
       <div class="row noprint" style="margin-bottom:1rem"><button class="btn primary" type="button" data-print>Print this sheet</button></div>
       ${PHASES.map((p) => `
         <h2 class="phase-h">${p.name} · Chapters ${p.chs}</h2>
@@ -283,6 +325,23 @@
 
   /* ---------- Binder map ---------- */
   const TABS = [
+    ["ch1", "2–4", "Why Six Sigma; why deployments fail", "Management commitment; train Green Belts first; engage accounting early"],
+    ["ch1", "7–8", "Six Sigma definitions", "Philosophy y = f(x) / tools / DMAIC / 3.4 DPMO"],
+    ["ch1", "9–15", "Quality pioneers", "One-line signature per pioneer"],
+    ["ch1", "21–23", "DMAIC tool lists", "PDCA (D, M) · PDSA (A, I) · SDCA (C)"],
+    ["ch1", "24–25", "Cost of quality curves", "Fix the p. 24 wording; traditional vs modern"],
+    ["ch1", "25–29", "Hoshin, expected profit, SMART", "EP = Σ profit × probability"],
+    ["ch1", "30–31", "Balanced scorecard, dashboard, KPI", "Four perspectives; leading vs lagging"],
+    ["ch2", "33–35", "TPS house, value-added test", "Three conditions; the CSA exception"],
+    ["ch2", "35–42", "Top lean tools", "SMED under 10 min; kanban needs 5S, standard work, TPM first"],
+    ["ch2", "40–41", "Theory of constraints, drum-buffer-rope", "Identify, exploit, subordinate, elevate, repeat"],
+    ["ch2", "42–45", "The wastes", "Motion = people; transportation = material"],
+    ["ch2", "47–51", "Value stream mapping", "Three components; five steps; inventory first"],
+    ["ch3", "52–57", "DFSS, IDOV, DMADV, design for X", "IDOV ↔ MAIC; “Validate” heading = verify"],
+    ["ch3", "56–57", "MTTF / MTBF; verification vs validation", "1/λ; specified requirements vs intended use"],
+    ["ch3", "66–68", "FMEA steps and S-O-D tables", "Detection runs backwards"],
+    ["ch3", "69–71", "RPN, do's and don'ts, Fig. 3.7", "Ties → higher severity; correct Fig. 3.7"],
+    ["ch3", "74–76", "Design vs process FMEA", "Block diagram vs flowchart"],
     ["ch4", "80–81", "Project selection", "DMAIC vs lean/kaizen routing rule"],
     ["ch4", "83–84", "Benchmarking types + Table 4.1", "Do/don't list for NOT questions"],
     ["ch4", "85", "Cross-functional challenges", "Ownership, information, measures, knowledge"],
@@ -319,7 +378,7 @@
     ["ch21", "369–373", "Standard work and capacity", "Three standard-work charts; capacity formula"],
     ["ch21", "374–377", "Flow analysis, VSM, takt", "Start VSM at shipping; takt = time ÷ demand"],
     ["ch21", "377–380", "Countermeasures, SMED, TOC", "Internal → external; five focusing steps"],
-    ["ch21", "380–385", "Kaizen, blitz, kaikaku, levels, events", "Three-way distinction (fix p. 381)"],
+    ["ch21", "380–385", "Kaizen, blitz, kaikaku, levels, events", "Kaizen vs blitz; kaikaku per pp. 38 and 381"],
     ["ch22", "389–390", "SPC definitions, Type I/II errors", "Type I = false alarm = tampering"],
     ["ch22", "391–396", "Common vs special cause; chart basics", "Control limits ≠ spec limits"],
     ["ch22", "398–402", "Chart selection, rational subgrouping", "Copy the selection table onto the tab"],
@@ -338,6 +397,16 @@
     ["ch22", "App. D–E", "Control chart formulas and constants", "Tab next to Chapter 22"]
   ];
   const ERRATA = [
+    ["ch1", "6", "Baldrige: five categories, up to two awards each", "Six categories since 2007 (nonprofit added), up to three awards each (NIST)."],
+    ["ch1", "7", "Capability symbols garbled (“C, = 2.0 and C,, &lt; 1.5”)", "A Six Sigma process: Cp = 2.0; with the 1.5σ shift, Cpk = 1.5."],
+    ["ch1", "12", "Feigenbaum's <i>Total Quality Control</i> published in 1951", "The 1951 edition was titled <i>Quality Control: Principles, Practice, and Administration</i> (ASQ). Feigenbaum = TQC still holds."],
+    ["ch1", "14, 389", "Pre-control credited to Shainin (Ch 1) and to Rath &amp; Strong (Ch 22)", "Both hold: it came out of Rath &amp; Strong in the 1950s, where Shainin worked."],
+    ["ch1", "24", "“Focusing on reducing prevention and appraisal costs” raises cost first, then failure costs fall", "Increase prevention spending: total cost may rise at first, then failure costs fall."],
+    ["ch2", "38, 381", "Kaikaku = what North Americans call a kaizen event or blitz", "Consistent within the handbook. LEI defines kaikaku as radical value-stream change and a kaizen workshop as a ~5-day event. The BoK tests kaizen vs blitz."],
+    ["ch3", "54", "IDOV's last phase headed “Validate”", "Verify — same tasks."],
+    ["ch3", "58", "ISO 31000:2018 “Principles and guidelines”", "The 2018 title is <i>Risk management — Guidelines</i>; the longer title was 2009's."],
+    ["ch3", "71", "Fig. 3.7: Risk 6 S = 8; Risk 4 (after) D = 5", "S = 3 and D = 3 — the only values that give the printed RPNs 42 and 75."],
+    ["ch3", "71", "The new automotive handbook changes RPN to “a risk rating”", "The 2019 AIAG &amp; VDA handbook replaced RPN with Action Priority (high / medium / low)."],
     ["ch6", "112", "“ISO 22301:2018”", "ISO 22301:2019. The quoted text is its definition of business continuity."],
     ["ch7", "131", "Fig. 7.13 cost column", "Contradicts the text's ranking; with the text's ranks the totals are A 3.40, B 1.40, C 3.60, D 1.90. C wins either way."],
     ["ch8", "139", "Balanced scorecard “five primary areas”", "Four perspectives: financial, customer, internal processes, learning and growth."],
@@ -352,7 +421,6 @@
     ["ch19", "356", "Half-fraction steak average 76.67", "74.25 — the four runs are 88, 58, 67 and 84. The effects (23.5, −6.5, 2.5) are right."],
     ["ch19", "359", "Table 19.8 (ANOVA outcomes)", "Garbled in the scan. Trust the text: effects G 23, C 20, A 13, D 5; only G and C are significant."],
     ["ch19", "359", "Significant if |effect| exceeds the standard error", "Loose shortcut. Compare effect ÷ SE with t (about 2 at 95%), or use ANOVA."],
-    ["ch21", "381", "Kaikaku described as a one-week focused kaizen", "That is a kaizen blitz. Kaikaku = radical, usually management-initiated change."],
     ["ch22", "389", "Hypothesis definition: rejecting = within expected variation; accepting = significant change", "Reversed. Rejecting the null hypothesis (no change) means concluding the process has changed."],
     ["ch22", "389, 401", "Subgroup size “four to 10”, “two to five” and “four to six”", "Inconsistent, not wrong: 4–5 is the usual variables-chart choice; attributes need 50–200."],
     ["ch22", "401", "Attribute sample sizes “should not vary by more than 20 percent”", "pp. 411–412 and 416 use the AIAG rule: recalculate limits for any sample more than 25% above or below the average."],
@@ -373,6 +441,13 @@
       <p class="soft">Verified against the handbook's own arithmetic, the 2022 BoK and the source standards. Where a figure only looks wrong because of the scan, check your printed page.</p>
       ${G.table(["Ch", "Page", "Handbook / scan says", "Use instead"], ERRATA.map(([ch, pg, s, u]) => [`<a href="#/${ch}" style="font:700 1.1rem var(--display);color:var(${CC[ch]})">${G.chapters[ch].num}</a>`, pg, s, u]))}
       <h2>Exam habits by phase</h2>
+      <h3 class="phase-h">Six Sigma and the organization</h3>
+      <ul>
+        <li><b>Attribution items:</b> the stem's key noun names the person — trilogy (Juran), zero defects (Crosby), loss function (Taguchi), fishbone (Ishikawa), PDCA originator (Shewhart).</li>
+        <li><b>Expected profit:</b> check the probabilities add to 1, multiply, then sum — keep the negative “none” outcome.</li>
+        <li><b>FMEA:</b> write S × O × D, remember detection runs backwards, and break ties on severity.</li>
+        <li><b>Lean definitions:</b> the distractors are near-miss terms — heijunka vs hoshin kanri, motion vs transportation, “measure” among the TOC steps.</li>
+      </ul>
       <h3 class="phase-h">Define</h3>
       <ul>
         <li><b>NOT questions</b> (roughly a quarter of items): find the handbook's list — challenges, reasons, do/don't tables — and eliminate the three that appear on it.</li>
@@ -384,7 +459,7 @@
       <ul>
         <li><b>DOE effects:</b> sum the four responses at + and the four at −, divide each by four, subtract. Wrong options are the high-level average alone, the difference of sums, or the sign flipped.</li>
         <li><b>Takt and Little's law:</b> both are one division. Write the units (min per unit, days) — an inverted ratio gives units that make no sense.</li>
-        <li><b>Kaizen family and implementation gates:</b> the stem's timeframe decides — about a week → blitz; years of small steps → kaizen; radical → kaikaku; early → proof of concept; late and limited → pilot.</li>
+        <li><b>Kaizen family and implementation gates:</b> the stem's timeframe decides — a few days to a week → blitz; years of small steps → kaizen; early → proof of concept; late and limited → pilot.</li>
       </ul>
       <h3 class="phase-h">Control</h3>
       <ul>
