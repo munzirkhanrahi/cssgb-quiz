@@ -82,14 +82,22 @@
   /* ---------- tabs ---------- */
   const TABS = [
     { id: "home", n: "Map", l: "Start here", c: "--cx", word: true },
-    { gap: true },
+    { gap: "Define" },
     { id: "ch4", n: "4", l: "Project ID", c: "--c4" },
     { id: "ch5", n: "5", l: "VOC", c: "--c5" },
     { id: "ch6", n: "6", l: "Project mgmt", c: "--c6" },
     { id: "ch7", n: "7", l: "M&P tools", c: "--c7" },
     { id: "ch8", n: "8", l: "Results", c: "--c8" },
     { id: "ch9", n: "9", l: "Teams", c: "--c9" },
-    { gap: true },
+    { gap: "Improve" },
+    { id: "ch19", n: "19", l: "DOE", c: "--c19" },
+    { id: "ch20", n: "20", l: "Pilots, PoC", c: "--c20" },
+    { id: "ch21", n: "21", l: "Lean tools", c: "--c21" },
+    { gap: "Control" },
+    { id: "ch22", n: "22", l: "SPC", c: "--c22" },
+    { id: "ch23", n: "23", l: "Sustain", c: "--c23" },
+    { id: "ch24", n: "24", l: "TPM, visual", c: "--c24" },
+    { gap: "All chapters" },
     { id: "traps", n: "Traps", l: "Close calls", c: "--ooc", word: true },
     { id: "formulas", n: "Math", l: "Formula sheet", c: "--cx", word: true },
     { id: "binder", n: "Binder", l: "What to tab", c: "--limit", word: true }
@@ -99,7 +107,7 @@
   function drawTabs(active) {
     const nav = G.$("#tabs");
     nav.innerHTML = TABS.map((t) => {
-      if (t.gap) return '<span class="tab-gap" aria-hidden="true"></span>';
+      if (t.gap) return `<span class="tab-gap" aria-hidden="true">${t.gap}</span>`;
       const best = G.state.best[t.id];
       const ch = G.chapters[t.id];
       const done = best && ch ? `<span class="done" title="Best blind-check score">${best}/${ch.check.length}</span>` : "";
@@ -131,12 +139,12 @@
         <div><p class="soft small" style="margin:0 0 .3rem">Chapter ${ch.num}, BoK ${ch.bok}, handbook pages ${ch.pages}</p><h1>${ch.title}</h1></div>
         <p class="lede">${ch.lede}</p>
       </header>
-      <div class="legend small" aria-hidden="true"><span><i class="dot" style="background:var(--lv-u)"></i>Understand</span><span><i class="dot" style="background:var(--lv-a)"></i>Apply</span><span><i class="dot" style="background:var(--lv-n)"></i>Analyze</span><span><b>HY</b> high yield</span></div>
+      <div class="legend small" aria-hidden="true">${["Remember", "Understand", "Apply", "Analyze"].filter((l) => secs.some((x) => x.level === l)).map((l) => `<span><i class="dot lvdot lv-${l}" style="width:10px;height:10px;border-radius:50%;display:inline-block"></i>${l}</span>`).join("")}<span><b>HY</b> high yield</span></div>
       <ul class="toc">${toc}<li><a href="#/${ch.id}/check"><span class="lvdot" style="background:var(--ink)"></span><span class="tl">Blind check (${ch.check.length} questions)</span></a></li></ul>
       ${body}
       <section class="check" id="${ch.id}-check" aria-labelledby="${ch.id}-check-h">
         <h2 id="${ch.id}-check-h">Blind check</h2>
-        <p class="soft">Answer every question first. The key and the reasoning behind each wrong option appear only after you submit. For volume, drill the 22 Chapter ${ch.num} questions in <a href="../#/">Green Belt Drill</a>.</p>
+        <p class="soft">Answer every question first. The key and the reasoning behind each wrong option appear only after you submit. For volume, drill the ${ch.drill || 22} Chapter ${ch.num} questions in <a href="../#/">Green Belt Drill</a>.</p>
         <div data-check="${ch.id}"></div>
       </section>
       <p class="foot">Study notes written in plain language from the ASQ CSSGB Handbook chapter and the 2022 CSSGB Body of Knowledge. Page numbers match your handbook copy.</p>`;
@@ -232,7 +240,7 @@
       G.mountAll(sheet);
       if (G.pages[key] && G.pages[key].after) G.pages[key].after(sheet);
       drawTabs(key);
-      document.title = `${title} | Define, visually`;
+      document.title = `${title} | CSSGB, visually`;
       if (!sec) { window.scrollTo(0, 0); sheet.focus({ preventScroll: true }); }
     }
     if (sec) {
