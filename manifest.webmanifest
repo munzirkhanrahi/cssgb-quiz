@@ -1,7 +1,7 @@
 {
-  "name": "Green Belt Drill",
-  "short_name": "GB Drill",
-  "description": "CSSGB practice questions with explanations and saved questions.",
+  "name": "CSSGB Prep",
+  "short_name": "CSSGB Prep",
+  "description": "Visual CSSGB study guide and 654 practice questions, with one progress record.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

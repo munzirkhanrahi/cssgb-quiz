@@ -132,9 +132,10 @@
   G.page("home", {
     title: "Phase map",
     render: () => `
-      <h1>CSSGB, visually</h1>
-      <p class="lede">The whole CSSGB Body of Knowledge — all 24 chapters of the handbook, from Six Sigma and the organization through Define, Measure, Analyze, Improve and Control, carrying all 100 scored questions. Every topic pairs a picture or a working tool with the trap ASQ sets and the page to tab in your binder.</p>
+      <h1>CSSGB Prep</h1>
+      <p class="lede">Study the whole CSSGB Body of Knowledge — all 24 handbook chapters, every topic paired with a picture or a working tool, the trap ASQ sets and the page to tab in your binder — then drill the practice bank. Both keep one progress record.</p>
       <div class="row" style="margin-top:1rem">${PHASES.map((p) => link("#/" + p.start, `Start ${p.name} (Ch ${G.chapters[p.start].num})`, p.id === "org")).join("")}${link("#/traps", "Open the traps lab")}${link("#/binder", "See what to tab")}</div>
+      <div data-drill="home"></div>
       <h2 style="margin-top:2rem">Where the depth is</h2>
       <p class="soft">Each tile is a BoK subtopic, shaded by the highest cognitive level ASQ will test. ASQ publishes phase totals, not a split by subtopic — so shading tells you <i>how</i> you'll be asked, not how often.</p>
       <div class="legend">${LEVELS.map(([l, d]) => `<span><i class="dot lvdot lv-${l}"></i>${l} — ${d}</span>`).join("")}</div>
@@ -142,7 +143,7 @@
         <h3 class="phase-h">${p.label || p.name + " phase"} · ${p.q} questions · Chapters ${p.chs}</h3>
         <div class="map anim">${p.rows.map(([ch, bok, items], r) => `
           <div class="map-row">
-            <a class="map-lab" href="#/${ch}" style="--tc: var(${CC[ch]})"><b>Ch ${G.chapters[ch].num} ${G.chapters[ch].title}</b><span>BoK ${bok}</span></a>
+            <a class="map-lab" href="#/${ch}" style="--tc: var(${CC[ch]})"><b>Ch ${G.chapters[ch].num} ${G.chapters[ch].title}</b><span>BoK ${bok}</span><span class="map-drill" data-drill="stat:${G.chapters[ch].num}"></span></a>
             <div class="map-tiles">${items.map(([ref, name, lv, sec], i) => `<a class="mt lv-${lv}" href="#/${ch}/${sec}" style="animation-delay:${(pi * 12 + r * 4 + i) * 30}ms"><span class="r">${ref}</span><span>${name}</span><span class="lvl">${lv}</span></a>`).join("")}</div>
           </div>`).join("")}</div>`).join("")}
       <h2>Start with these</h2>
@@ -156,8 +157,8 @@
         ${G.tab("<p>What to tab or write in your handbook before exam day.</p>")}
         ${G.flag("<p>Where the handbook text or its scan is wrong, with the correct version.</p>")}
       </div>
-      <p>Each chapter ends with a <b>blind check</b>: answer everything, then see the key and why each wrong option is wrong. For volume, use <a href="../">Green Belt Drill</a> — 24 questions per Part I chapter, 22 per Define chapter, 27 per Measure chapter, 33 per Analyze and Improve chapter, and 30 per Control chapter.</p>
-      <p class="foot">Study notes in plain language from the ASQ CSSGB Handbook (Chapters 1–24) and the 2022 CSSGB Body of Knowledge. Progress is saved in this browser only.</p>`
+      <p>Each chapter ends with a <b>blind check</b> — answer everything, then see the key and why each wrong option is wrong — followed by that chapter's <b>drill questions</b> from the <a href="#/drill">practice bank</a>: 24 per Part I chapter, 22 per Define chapter, 27 per Measure chapter, 33 per Analyze and Improve chapter, and 30 per Control chapter.</p>
+      <p class="foot">Study notes in plain language from the ASQ CSSGB Handbook (Chapters 1–24) and the 2022 CSSGB Body of Knowledge. Topics you mark, blind-check scores and every drill answer are saved in this browser; <a href="#/drill/sync">turn on sync</a> to keep them in your GitHub account and use them on any device.</p>`
   });
 
   /* ---------- Traps lab ---------- */

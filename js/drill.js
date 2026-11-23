@@ -1,9 +1,14 @@
+/* Drill — the practice-question bank inside CSSGB Prep (formerly the Green Belt Drill app).
+   It owns the one progress record for the whole site: every drill answer, saved questions,
+   settings, the quiz in progress, and the study-page progress (topics marked reviewed and
+   best blind-check scores). The record lives in this browser and, once sync is on, in a
+   secret gist in the user's GitHub account. The site shell (core.js) calls Drill.show(). */
 (() => {
   "use strict";
 
   const BANK = window.QUESTION_BANK;
-  const app = document.getElementById("app");
-  if (!BANK || !app) return;
+  let app = null; // the drill view's container; the shell re-creates it on each visit
+  if (!BANK) return;
 
   const QUESTIONS = BANK.questions;
   const BY_ID = new Map(QUESTIONS.map((q) => [q.id, q]));
@@ -22,6 +27,8 @@
        saved:     { questionId: { v: 1 | 0, t: time } }           1 = saved, 0 = removed
        settings + settingsT, selected + selectedT                 last change wins
        session:   the current quiz, with t = last change          resumes on any device
+       learn:     study pages: rev { "ch10/maps": { v, t } }      last change wins per topic
+                               best { ch10: 6 }                   highest blind-check score wins
      ===================================================================== */
   const blank = () => ({
     v: 2,
@@ -32,6 +39,7 @@
     selected: [],
     selectedT: 0,
     session: null,
+    learn: { rev: {}, best: {} },
   });
 
   const num = (x) => (typeof x === "number" && isFinite(x) ? x : 0);
@@ -58,6 +66,22 @@
       done: !!s.done,
       t: num(s.t) || fallbackT,
     };
+  }
+
+  function cleanLearn(raw) {
+    const out = { rev: {}, best: {} };
+    if (!raw || typeof raw !== "object") return out;
+    if (raw.rev && typeof raw.rev === "object" && !Array.isArray(raw.rev)) {
+      for (const [k, r] of Object.entries(raw.rev)) {
+        if (/^ch\d{1,2}\/[a-z0-9-]{1,40}$/.test(k) && r && (r.v === 0 || r.v === 1)) out.rev[k] = { v: r.v, t: num(r.t) };
+      }
+    }
+    if (raw.best && typeof raw.best === "object" && !Array.isArray(raw.best)) {
+      for (const [k, n] of Object.entries(raw.best)) {
+        if (/^ch\d{1,2}$/.test(k) && Number.isInteger(n) && n >= 0 && n <= 100) out.best[k] = n;
+      }
+    }
+    return out;
   }
 
   // Accepts current data, older (v1) data, backups and the synced file.
@@ -106,6 +130,7 @@
       out.selectedT = 1;
       out.session = cleanSession(raw.session, 1);
     }
+    out.learn = cleanLearn(raw.learn);
     out.attempts.sort((a, b) => a[0] - b[0]);
     if (out.attempts.length > ATTEMPTS_MAX) out.attempts = out.attempts.slice(-ATTEMPTS_MAX);
     return out;
@@ -131,6 +156,10 @@
     if (!a.session) out.session = b.session;
     else if (!b.session) out.session = a.session;
     else out.session = b.session.t > a.session.t ? b.session : a.session;
+
+    out.learn = { rev: Object.assign({}, a.learn.rev), best: Object.assign({}, a.learn.best) };
+    for (const [k, r] of Object.entries(b.learn.rev)) if (!out.learn.rev[k] || r.t > out.learn.rev[k].t) out.learn.rev[k] = r;
+    for (const [k, n] of Object.entries(b.learn.best)) if (n > (out.learn.best[k] || 0)) out.learn.best[k] = n;
     return out;
   }
 
@@ -138,7 +167,11 @@
     let savedMax = 0;
     for (const r of Object.values(s.saved)) savedMax = Math.max(savedMax, r.t);
     const lastT = s.attempts.length ? s.attempts[s.attempts.length - 1][0] : 0;
-    return [s.attempts.length, lastT, Object.keys(s.saved).length, savedMax, s.settingsT, s.selectedT, s.session ? s.session.t : 0].join("|");
+    let revMax = 0, bestSum = 0;
+    for (const r of Object.values(s.learn.rev)) revMax = Math.max(revMax, r.t);
+    for (const n of Object.values(s.learn.best)) bestSum += n;
+    return [s.attempts.length, lastT, Object.keys(s.saved).length, savedMax, s.settingsT, s.selectedT, s.session ? s.session.t : 0,
+      Object.keys(s.learn.rev).length, revMax, Object.keys(s.learn.best).length, bestSum].join("|");
   }
 
   /* ---------------- local storage ---------------- */
@@ -186,7 +219,7 @@
       const other = sanitize(JSON.parse(e.newValue));
       if (signature(other) === signature(state)) return;
       state = mergeStates(state, other);
-      rerender();
+      afterDataChange();
     } catch (err) { /* ignore */ }
   });
 
@@ -319,7 +352,7 @@
         try {
           const changedHere = await syncOnce();
           setStatus("ok");
-          if (changedHere) rerender();
+          if (changedHere) afterDataChange();
         } catch (e) {
           handleError(e);
         } finally {
@@ -386,7 +419,7 @@
           const g = await api("/gists", {
             method: "POST",
             body: JSON.stringify({
-              description: "Green Belt Drill progress (synced by the quiz app; do not edit)",
+              description: "CSSGB Prep progress (synced by the site; do not edit)",
               public: false,
               files: { [GIST_FILE]: { content: payload() } },
             }),
@@ -395,8 +428,9 @@
         }
         cfg.gistUrl = found ? found.html_url : "https://gist.github.com/" + cfg.gistId;
         saveCfg();
-        await syncOnce();
+        const changedHere = await syncOnce();
         setStatus("ok");
+        if (changedHere) learnToG();
         return { ok: true, reused: !!found };
       } catch (e) {
         const msg =
@@ -443,7 +477,7 @@
       error: ["bad", "Sync problem. Tap for details"],
     };
     const [cls, text] = map[status.s] || map.idle;
-    return `<button class="sync-chip ${cls}" id="sync-chip" data-act="sync"><i aria-hidden="true"></i>${esc(text)}</button>`;
+    return `<button class="sync-chip ${cls}" id="sync-chip" data-dact="sync"><i aria-hidden="true"></i>${esc(text)}</button>`;
   }
   function paintChip() {
     const el = document.getElementById("sync-chip");
@@ -452,9 +486,31 @@
     if (panel) panel.innerHTML = syncStatusHtml();
   }
 
-  /* ---------------- run chart ---------------- */
-  function runChart(results, { height = 120, label = "Running accuracy" } = {}) {
-    const W = 600, H = height, padL = 38, padR = 8, padT = 10, padB = 10;
+  /* ---------------- run chart ----------------
+     Drawn first at a nominal width, then redrawn at the width it actually gets (fitCharts), so the
+     axis labels keep their real size on a phone instead of being squeezed by the stretched SVG. */
+  const chartData = new Map();
+  let chartSeq = 0;
+  function runChart(results, opts = {}) {
+    const id = ++chartSeq;
+    chartData.set(id, [results, opts]);
+    if (chartData.size > 12) chartData.delete(chartData.keys().next().value);
+    return drawRunChart(results, opts, 600, id);
+  }
+  function fitCharts(root) {
+    if (!root) return;
+    root.querySelectorAll("svg.runchart[data-rc]").forEach((svg) => {
+      const w = Math.round(svg.getBoundingClientRect().width);
+      const d = chartData.get(Number(svg.dataset.rc));
+      if (!d || w < 120 || Math.abs(w - Number(svg.dataset.w)) < 2) return;
+      svg.outerHTML = drawRunChart(d[0], d[1], w, Number(svg.dataset.rc));
+    });
+  }
+  let fitTimer = null;
+  window.addEventListener("resize", () => { clearTimeout(fitTimer); fitTimer = setTimeout(() => fitCharts(document), 150); });
+
+  function drawRunChart(results, { height = 120, label = "Running accuracy" } = {}, width = 600, id = 0) {
+    const W = width, H = height, padL = 38, padR = 8, padT = 10, padB = 10;
     const target = Math.min(100, Math.max(0, Number(state.settings.target) || 0));
     const y = (v) => padT + (H - padT - padB) * (1 - v / 100);
     const n = results.length;
@@ -469,7 +525,8 @@
     }
     let aria = `${label}: no answers yet`;
     if (n === 0) {
-      body += `<text class="empty" x="${(W + padL) / 2}" y="${H / 2 + 4}" text-anchor="middle">Answer a question and your run chart starts here</text>`;
+      const msg = W >= 420 ? "Answer a question and your run chart starts here" : "Answer a question to start the chart";
+      body += `<text class="empty" x="${(padL + W - padR) / 2}" y="${H / 2 + 4}" text-anchor="middle">${msg}</text>`;
     } else {
       let ok = 0;
       const pts = results.map((r, i) => {
@@ -482,7 +539,7 @@
       body += pts.map((p) => `<circle class="${p.r ? "pt-ok" : "pt-miss"}" cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${rad}"/>`).join("");
       aria = `${label}: ${pct(ok, n)}% after ${plural(n, "answer")}`;
     }
-    return `<svg class="runchart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="height:${H}px" role="img" aria-label="${esc(aria)}">${body}</svg>`;
+    return `<svg class="runchart" data-rc="${id}" data-w="${W}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="height:${H}px" role="img" aria-label="${esc(aria)}">${body}</svg>`;
   }
 
   const chartKey = () =>
@@ -545,43 +602,62 @@
     toast(was ? "Removed from saved" : "Saved for later");
   }
 
-  /* ---------------- routing ---------------- */
-  const currentView = () => location.hash.replace(/^#\/?/, "") || "home";
+  /* ---------------- routing ----------------
+     Drill pages live under #/drill (home), #/drill/quiz, #/drill/results, #/drill/saved and
+     #/drill/sync. The site shell owns the hashchange listener and calls show(). */
+  const drillView = () => {
+    const m = location.hash.match(/^#\/drill(?:\/([a-z]+))?\/?$/);
+    return m ? m[1] || "home" : null;
+  };
+  const TITLES = { home: "Drill", quiz: "Drill question", results: "Drill results", saved: "Saved questions", sync: "Sync and backup" };
+  const currentView = () => drillView() || "";
+  const onDrillPage = () => !!(drillView() && app && document.body.contains(app));
 
   function go(view) {
-    const h = "#/" + (view === "home" ? "" : view);
+    const h = view === "home" ? "#/drill" : "#/drill/" + view;
     if (location.hash !== h) location.hash = h;
-    else route();
+    else show(view);
   }
 
-  function route() {
-    const view = currentView();
+  function renderView(view) {
     if (view === "quiz" && state.session && !state.session.done) renderQuiz();
     else if (view === "results" && state.session) renderResults();
     else if (view === "saved") renderSaved();
     else if (view === "sync") renderSync();
     else renderHome();
+  }
+
+  function show(view, el) {
+    if (el) app = el;
+    if (!app || !document.body.contains(app)) return;
+    view = view || "home";
+    // No quiz to show (old bookmark, finished quiz, another device cleared it): go to drill home.
+    const live = state.session && !state.session.done;
+    if ((view === "quiz" && !live) || (view === "results" && !state.session) || !TITLES[view]) {
+      location.replace("#/drill");
+      return;
+    }
+    renderView(view);
     window.scrollTo(0, 0);
   }
-  window.addEventListener("hashchange", route);
 
   // Re-draw after data arrived from another device or tab, keeping the scroll position.
   function rerender() {
+    if (!onDrillPage()) {
+      // Study pages: update ticks, scores and practice panels in place; tools keep their state.
+      if (window.G && G.refreshProgress) G.refreshProgress();
+      return;
+    }
     if (document.activeElement && /^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement.tagName)) return;
     const y = window.scrollY;
-    const view = currentView();
-    if (view === "quiz" && state.session && !state.session.done) renderQuiz();
-    else if (view === "results" && state.session) renderResults();
-    else if (view === "saved") renderSaved();
-    else if (view === "sync") renderSync();
-    else renderHome();
+    renderView(drillView());
     window.scrollTo(0, y);
   }
 
   /* ---------------- views ---------------- */
   function masthead() {
     return `<header class="masthead">
-        <div class="brand">${LOGO}<div><h1>Green Belt Drill</h1><p>${QUESTIONS.length} CSSGB practice questions across ${CHAPTERS.length} chapters</p></div></div>
+        <div class="brand">${LOGO}<div><h1>Drill</h1><p>${QUESTIONS.length} practice questions across ${CHAPTERS.length} chapters, with explanations</p></div></div>
         ${chipHtml()}
       </header>`;
   }
@@ -616,7 +692,7 @@
           <span class="num">${c.n}</span>
           <span class="title">${esc(c.title)}<span class="meta">${meta}</span></span>
           <span class="bar" aria-hidden="true"><i class="b-ok" style="width:${(100 * ok) / qs.length}%"></i><i class="b-miss" style="width:${(100 * miss) / qs.length}%"></i></span>
-        </label></li>`;
+        </label>${hasNotes(c.n) ? `<a class="notes" href="#/ch${c.n}" aria-label="Study notes for chapter ${c.n}">Notes</a>` : ""}</li>`;
     }).join("");
 
     app.innerHTML = `
@@ -659,12 +735,13 @@
           <select id="mixed" data-set="mixedSize">${[10, 25, 50, 100].map((n) => `<option ${Number(state.settings.mixedSize) === n ? "selected" : ""}>${n}</option>`).join("")}</select></div>
       </section>
 
-      <p class="footnote">Every answer, saved question and setting is stored as you go. <button class="linkish" data-act="sync">Sync and backup</button></p>
+      <p class="footnote">Every answer, saved question and setting is stored as you go, together with your study-page progress. <button class="linkish" data-act="sync">Sync and backup</button></p>
 
       <div class="startbar"><div class="inner">
         <p>${sel.size ? `${plural(sel.size, "chapter")} selected, ${selCount} questions` : "Tick chapters to practice them"}</p>
         <button class="btn primary" data-act="start" ${sel.size ? "" : "disabled"}>Start quiz</button>
       </div></div>`;
+    fitCharts(app);
   }
 
   function explanationHtml(paras) {
@@ -710,6 +787,7 @@
           <h3>${right ? "Correct" : `Not quite. The answer is ${shownLetter}.`}</h3>
           ${explanationHtml(q.x)}
           ${shuffled ? `<p class="note">Letters inside the explanation follow the PDF's original order, shown as "was …" on each choice.</p>` : ""}
+          ${hasNotes(q.ch) ? `<p class="study"><a href="#/ch${q.ch}">Study Chapter ${q.ch}: ${esc(chapterTitle(q.ch))}</a></p>` : ""}
         </section>`;
     }
 
@@ -719,7 +797,7 @@
 
     app.innerHTML = `
       <div class="quizbar">
-        <button class="btn quiet small" data-act="home">Chapters</button>
+        <button class="btn quiet small" data-act="home">Drill home</button>
         <span class="where">${esc(s.title)}</span>
         <button class="btn small save-btn" data-act="save" aria-pressed="${saved}">${saved ? ICON_SAVE : ICON_UNSAVED}<span>${saved ? "Saved" : "Save"}</span></button>
       </div>
@@ -778,7 +856,7 @@
     const target = Number(state.settings.target) || 0;
 
     app.innerHTML = `
-      <div class="quizbar"><button class="btn quiet small" data-act="home">Chapters</button><span class="where">${esc(s.title)}</span><span></span></div>
+      <div class="quizbar"><button class="btn quiet small" data-act="home">Drill home</button><span class="where">${esc(s.title)}</span><span></span></div>
       <header class="result-head">
         <h2>${ok} / ${results.length}</h2>
         <p>${results.length ? `${p}% right${target ? (p >= target ? `, at or above your ${target}% target` : `, below your ${target}% target`) : ""}.` : "No questions answered."}${skipped ? ` ${plural(skipped, "question")} skipped.` : ""}</p>
@@ -791,9 +869,11 @@
       <div class="actions">
         ${missed.length ? `<button class="btn primary" data-act="retry-missed">Practice the ${missed.length} you missed</button>` : ""}
         <button class="btn" data-act="restart">Start this set again</button>
-        <button class="btn quiet" data-act="home">Back to chapters</button>
+        <button class="btn quiet" data-act="home">Back to drill home</button>
       </div>
+      ${reviewChapters(missed)}
       ${missed.length ? `<div class="section-head"><h2>Missed in this quiz</h2></div><ul class="saved-list">${missed.map((id) => reviewItem(id)).join("")}</ul>` : ""}`;
+    fitCharts(app);
   }
 
   function renderSaved() {
@@ -803,7 +883,7 @@
       return qa.ch - qb.ch || qa.n - qb.n;
     });
     app.innerHTML = `
-      <div class="quizbar"><button class="btn quiet small" data-act="home">Chapters</button><span class="where">Saved questions</span><span></span></div>
+      <div class="quizbar"><button class="btn quiet small" data-act="home">Drill home</button><span class="where">Saved questions</span><span></span></div>
       <div class="section-head"><h2>Saved questions (${ids.length})</h2></div>
       ${ids.length
         ? `<div class="actions"><button class="btn primary" data-act="practice-saved">Practice saved questions</button></div>
@@ -815,13 +895,13 @@
   function syncStatusHtml() {
     const { login, gistUrl, lastSync, status } = Sync.info();
     if (!Sync.enabled()) {
-      return `<p class="status-line warn"><i aria-hidden="true"></i>Sync is off. Your progress is only in this browser.</p>`;
+      return `<p class="status-line warn"><i aria-hidden="true"></i><span>Sync is off. Your progress is only in this browser.</span></p>`;
     }
     const line =
-      status.s === "error" ? `<p class="status-line bad"><i aria-hidden="true"></i>${esc(status.msg || "Sync problem.")}</p>`
-      : status.s === "offline" ? `<p class="status-line warn"><i aria-hidden="true"></i>Offline. Everything is saved in this browser and will go to GitHub when you're back online.</p>`
-      : status.s === "syncing" || status.s === "pending" ? `<p class="status-line"><i aria-hidden="true"></i>Saving to GitHub…</p>`
-      : `<p class="status-line good"><i aria-hidden="true"></i>Sync is on${login ? ` for <b>${esc(login)}</b>` : ""}.${lastSync ? ` Last saved to GitHub ${esc(clock(lastSync))}.` : ""}</p>`;
+      status.s === "error" ? `<p class="status-line bad"><i aria-hidden="true"></i><span>${esc(status.msg || "Sync problem.")}</span></p>`
+      : status.s === "offline" ? `<p class="status-line warn"><i aria-hidden="true"></i><span>Offline. Everything is saved in this browser and will go to GitHub when you're back online.</span></p>`
+      : status.s === "syncing" || status.s === "pending" ? `<p class="status-line"><i aria-hidden="true"></i><span>Saving to GitHub…</span></p>`
+      : `<p class="status-line good"><i aria-hidden="true"></i><span>Sync is on${login ? ` for <b>${esc(login)}</b>` : ""}.${lastSync ? ` Last saved to GitHub ${esc(clock(lastSync))}.` : ""}</span></p>`;
     return `${line}
       <p class="muted-small">Stored in a secret gist in your GitHub account${gistUrl ? `: <a href="${esc(gistUrl)}" target="_blank" rel="noopener">view the file</a>` : ""}.</p>
       <div class="actions"><button class="btn" data-act="sync-now">Sync now</button><button class="btn quiet" data-act="sync-off">Turn off sync on this device</button></div>`;
@@ -832,12 +912,12 @@
     const total = state.attempts.length;
     const tokenUrl = "https://github.com/settings/tokens/new?scopes=gist&description=Green%20Belt%20Drill%20sync";
     app.innerHTML = `
-      <div class="quizbar"><button class="btn quiet small" data-act="home">Chapters</button><span class="where">Sync and backup</span><span></span></div>
+      <div class="quizbar"><button class="btn quiet small" data-act="home">Drill home</button><span class="where">Sync and backup</span><span></span></div>
       <div class="section-head"><h2>Sync and backup</h2></div>
 
       <section class="panel">
         <h3>What's being kept</h3>
-        <p>${plural(total, "answer")} across ${plural(Object.keys(hist).length, "question")}, ${plural(savedIds().length, "saved question")}, your settings, and the quiz you're in. Every answer is kept with its time and the choice you picked.</p>
+        <p>${plural(total, "answer")} across ${plural(Object.keys(hist).length, "question")}, ${plural(savedIds().length, "saved question")}, your settings, and the quiz you're in. Every answer is kept with its time and the choice you picked. From the study pages: ${plural(Object.values(state.learn.rev).filter((r) => r.v === 1).length, "topic")} marked “I can explain this” and blind-check best scores for ${plural(Object.keys(state.learn.best).length, "chapter")}.</p>
         <div id="sync-status">${syncStatusHtml()}</div>
       </section>
 
@@ -866,7 +946,7 @@
     const blob = new Blob([JSON.stringify(data)], { type: "application/json" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = `green-belt-drill-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    a.download = `cssgb-prep-backup-${new Date().toISOString().slice(0, 10)}.json`;
     document.body.appendChild(a);
     a.click();
     setTimeout(() => {
@@ -885,17 +965,23 @@
       const raw = JSON.parse(await file.text());
       if (raw.app !== "green-belt-drill") throw new Error("not ours");
       const before = state.attempts.length;
+      const learnBefore = JSON.stringify(state.learn);
       state = mergeStates(state, sanitize(raw));
       commit();
-      toast(`Backup loaded. ${plural(state.attempts.length - before, "answer")} added.`);
-      rerender();
+      const learnChanged = JSON.stringify(state.learn) !== learnBefore;
+      toast(`Backup loaded. ${plural(state.attempts.length - before, "answer")} added${learnChanged ? ", and study-page progress updated" : ""}.`);
+      afterDataChange();
     } catch (e) {
-      toast("That file isn't a Green Belt Drill backup. Choose the .json file made by Download backup.");
+      toast("That file isn't a CSSGB Prep (Green Belt Drill) backup. Choose the .json file made by Download backup.");
     }
   });
 
-  /* ---------------- events ---------------- */
-  app.addEventListener("click", async (e) => {
+  /* ---------------- events ----------------
+     Listeners sit on the document because the drill container is re-created on every visit. */
+  const inDrill = (e) => app && document.body.contains(app) && app.contains(e.target);
+
+  document.addEventListener("click", async (e) => {
+    if (!inDrill(e)) return;
     const t = e.target.closest("[data-act]");
     if (!t || t.disabled) return;
     const act = t.dataset.act;
@@ -912,17 +998,8 @@
       case "resume": go("quiz"); break;
       case "saved": go("saved"); break;
       case "practice-saved": startSession("Saved questions", savedIds()); break;
-      case "missed": {
-        const hist = historyMap();
-        startSession("Missed questions", QUESTIONS.filter((q) => hist[q.id] && hist[q.id].l === 0).map((q) => q.id));
-        break;
-      }
-      case "mixed": {
-        const size = Number(state.settings.mixedSize) || 25;
-        const ids = shuffle(QUESTIONS.map((q) => q.id)).slice(0, size);
-        startSession(`Mixed set of ${ids.length}`, ids);
-        break;
-      }
+      case "missed": startMissed(); break;
+      case "mixed": startMixed(); break;
       case "start": {
         const sel = new Set(state.selected);
         const ids = QUESTIONS.filter((q) => sel.has(q.ch)).map((q) => q.id);
@@ -963,7 +1040,8 @@
     }
   });
 
-  app.addEventListener("change", (e) => {
+  document.addEventListener("change", (e) => {
+    if (!inDrill(e)) return;
     const t = e.target;
     if (t.dataset.ch) {
       const n = Number(t.dataset.ch);
@@ -990,7 +1068,8 @@
     }
   });
 
-  app.addEventListener("keydown", (e) => {
+  document.addEventListener("keydown", (e) => {
+    if (!inDrill(e)) return;
     if (e.key === "Enter" && e.target.id === "token") {
       e.preventDefault();
       const b = app.querySelector('[data-act="sync-on"]');
@@ -1002,7 +1081,7 @@
     if (e.metaKey || e.ctrlKey || e.altKey) return;
     if (/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName)) return;
     const s = state.session;
-    if (currentView() !== "quiz" || !s || s.done) return;
+    if (!onDrillPage() || currentView() !== "quiz" || !s || s.done) return;
     const id = s.ids[s.i];
     const answered = id in s.picks;
     const k = e.key.toLowerCase();
@@ -1021,8 +1100,198 @@
     }
   });
 
+  /* =====================================================================
+     The rest of the site: study-page progress, practice panels, shortcuts
+     ===================================================================== */
+  function startMixed() {
+    const size = Number(state.settings.mixedSize) || 25;
+    const ids = shuffle(QUESTIONS.map((q) => q.id)).slice(0, size);
+    startSession(`Mixed set of ${ids.length}`, ids);
+  }
+  function startMissed() {
+    const hist = historyMap();
+    startSession("Missed questions", QUESTIONS.filter((q) => hist[q.id] && hist[q.id].l === 0).map((q) => q.id));
+  }
+
+  const BY_CH = new Map(CHAPTERS.map((c) => [c.n, []]));
+  for (const q of QUESTIONS) { if (!BY_CH.has(q.ch)) BY_CH.set(q.ch, []); BY_CH.get(q.ch).push(q); }
+  const hasNotes = (n) => !!(window.G && G.chapters && G.chapters["ch" + n]);
+
+  function chapterStats(n) {
+    const hist = historyMap();
+    const qs = BY_CH.get(n) || [];
+    let tried = 0, ok = 0, miss = 0;
+    const missedIds = [];
+    for (const q of qs) {
+      const h = hist[q.id];
+      if (!h) continue;
+      tried++;
+      if (h.l === 1) ok++;
+      else { miss++; missedIds.push(q.id); }
+    }
+    return { total: qs.length, tried, ok, miss, ids: qs.map((q) => q.id), missedIds };
+  }
+
+  function reviewChapters(missed) {
+    if (!missed.length) return "";
+    const by = new Map();
+    for (const id of missed) { const n = BY_ID.get(id).ch; by.set(n, (by.get(n) || 0) + 1); }
+    const rows = Array.from(by.entries()).sort((a, b) => a[0] - b[0]).filter(([n]) => hasNotes(n));
+    if (!rows.length) return "";
+    return `<section class="panel" aria-label="Chapters to review">
+        <h3>Go back to the notes</h3>
+        <ul class="review-chs">${rows.map(([n, k]) => `<li><a href="#/ch${n}">Chapter ${n}: ${esc(chapterTitle(n))}</a> <span class="muted-small">${plural(k, "question")} missed</span></li>`).join("")}</ul>
+      </section>`;
+  }
+
+  function resumeHtml() {
+    const s = state.session;
+    if (!s || s.done) return "";
+    return `<section class="resume" aria-label="Unfinished quiz">
+        <p><b>${esc(s.title)}</b><br>Question ${s.i + 1} of ${s.ids.length}, ${sessionResults(s).reduce((a, b) => a + b, 0)} right so far</p>
+        <button class="btn primary" data-dact="resume">Resume quiz</button>
+      </section>`;
+  }
+
+  // Practice panel for the home page
+  function homePanelHtml() {
+    const hist = historyMap();
+    const missedN = QUESTIONS.filter((q) => hist[q.id] && hist[q.id].l === 0).length;
+    const recent = state.attempts.slice(-60).map(attemptOk);
+    const recentOk = recent.reduce((a, b) => a + b, 0);
+    return `<section class="drill home-drill" aria-labelledby="home-drill-h">
+        <div class="section-head"><h2 id="home-drill-h">Drill</h2>${chipHtml()}</div>
+        ${resumeHtml()}
+        <section class="chart-wrap" aria-label="Recent accuracy">
+          <div class="chart-head">
+            <h2>Your last ${recent.length ? plural(recent.length, "answer") : "answers"}</h2>
+            ${recent.length ? `<span><span class="big">${pct(recentOk, recent.length)}%</span> <span class="muted">right, ${Object.keys(hist).length} of ${QUESTIONS.length} questions tried</span></span>` : `<span class="muted">${QUESTIONS.length} questions waiting</span>`}
+          </div>
+          ${runChart(recent)}
+          ${chartKey()}
+        </section>
+        <nav class="quick" aria-label="Quick start">
+          <button class="btn primary" data-dact="mixed"><b>Mixed ${state.settings.mixedSize}</b><small>Random from all chapters</small></button>
+          <button class="btn" data-dact="missed" ${missedN ? "" : "disabled"}><b>Missed ${missedN}</b><small>Wrong on last try</small></button>
+          <a class="btn" href="#/drill"><b>Chapters</b><small>Pick chapters, options</small></a>
+        </nav>
+      </section>`;
+  }
+
+  // Practice panel at the end of each study chapter
+  function chapterPanelHtml(n) {
+    const c = chapterStats(n);
+    if (!c.total) return "";
+    const s = state.session;
+    const unfinished = s && !s.done && Object.keys(s.picks).length ? s : null;
+    const line = c.tried
+      ? `${c.tried} of ${c.total} tried: ${c.ok} right on the last try (${pct(c.ok, c.tried)}%), ${c.miss} missed.`
+      : `${c.total} practice questions on this chapter, none tried yet.`;
+    return `<div class="drill ch-drill">
+        <p>${line}</p>
+        <span class="bar" aria-hidden="true" style="display:flex;max-width:30rem"><i class="b-ok" style="width:${(100 * c.ok) / c.total}%"></i><i class="b-miss" style="width:${(100 * c.miss) / c.total}%"></i></span>
+        <div class="actions">
+          <button class="btn primary" data-dact="chapter" data-ch="${n}">Drill all ${c.total}</button>
+          <button class="btn" data-dact="chapter-missed" data-ch="${n}" ${c.miss ? "" : "disabled"}>${c.miss ? `Practice the ${c.miss} missed` : "No missed questions"}</button>
+          <a class="btn quiet" href="#/drill">Mix with other chapters</a>
+        </div>
+        ${unfinished ? `<p class="muted-small">Starting replaces your unfinished quiz, “${esc(unfinished.title)}” (question ${unfinished.i + 1} of ${unfinished.ids.length}). <button class="linkish" data-dact="resume">Resume it instead</button></p>` : ""}
+      </div>`;
+  }
+
+  function chapterStatText(n) {
+    const c = chapterStats(n);
+    if (!c.total) return "";
+    return c.tried ? `Drill ${pct(c.ok, c.tried)}% right, ${c.tried} of ${c.total} tried` : `Drill: ${c.total} questions`;
+  }
+
+  // Fill the practice placeholders a study page leaves for the drill: data-drill="home" | "chapter:N" | "stat:N"
+  function fill(root) {
+    root.querySelectorAll("[data-drill]").forEach((el) => {
+      const [kind, arg] = el.dataset.drill.split(":");
+      if (kind === "home") { el.innerHTML = homePanelHtml(); fitCharts(el); }
+      else if (kind === "chapter") el.innerHTML = chapterPanelHtml(Number(arg));
+      else if (kind === "stat") el.textContent = chapterStatText(Number(arg));
+    });
+  }
+
+  // Buttons on the study pages (and the sync chip anywhere)
+  document.addEventListener("click", (e) => {
+    const t = e.target.closest("[data-dact]");
+    if (!t || t.disabled) return;
+    const n = Number(t.dataset.ch);
+    switch (t.dataset.dact) {
+      case "sync": go("sync"); break;
+      case "resume": go("quiz"); break;
+      case "mixed": startMixed(); break;
+      case "missed": startMissed(); break;
+      case "chapter": startSession(`Chapter ${n}: ${chapterTitle(n)}`, chapterStats(n).ids); break;
+      case "chapter-missed": startSession(`Chapter ${n}: missed questions`, chapterStats(n).missedIds); break;
+    }
+  });
+
+  /* ---------- study-page progress lives in the same record ---------- */
+  // Mirror the record into the study pages' G.state (rev: key -> true, best: chapter -> score).
+  function learnToG() {
+    if (!window.G || !G.state) return;
+    const rev = {};
+    for (const [k, r] of Object.entries(state.learn.rev)) if (r.v === 1) rev[k] = true;
+    G.state.rev = rev;
+    G.state.best = Object.assign({}, state.learn.best);
+  }
+
+  // The study pages call G.persist() after a change; stamp what changed and save it.
+  function persistLearn() {
+    if (!window.G || !G.state) return;
+    const L = state.learn;
+    let changed = false;
+    for (const [k, on] of Object.entries(G.state.rev || {})) {
+      if (!/^ch\d{1,2}\/[a-z0-9-]{1,40}$/.test(k)) continue;
+      const v = on ? 1 : 0, cur = L.rev[k];
+      if (cur ? cur.v !== v : v === 1) { L.rev[k] = { v, t: now() }; changed = true; }
+    }
+    for (const [k, n] of Object.entries(G.state.best || {})) {
+      if (/^ch\d{1,2}$/.test(k) && Number.isInteger(n) && n > (L.best[k] || 0)) { L.best[k] = n; changed = true; }
+    }
+    if (changed) commit();
+  }
+
+  // One-time move of the old study-guide progress (kept under gbLearn.v1) into the record.
+  function migrateLearn() {
+    try {
+      if (localStorage.getItem("gbLearn.migrated")) return;
+      const old = JSON.parse(localStorage.getItem("gbLearn.v1") || "{}") || {};
+      let changed = false;
+      for (const [k, on] of Object.entries(old.rev || {})) {
+        if (on === true && /^ch\d{1,2}\/[a-z0-9-]{1,40}$/.test(k) && !state.learn.rev[k]) { state.learn.rev[k] = { v: 1, t: 1 }; changed = true; }
+      }
+      for (const [k, n] of Object.entries(old.best || {})) {
+        if (/^ch\d{1,2}$/.test(k) && Number.isInteger(n) && n > (state.learn.best[k] || 0)) { state.learn.best[k] = n; changed = true; }
+      }
+      localStorage.setItem("gbLearn.migrated", "1");
+      if (changed) commit();
+    } catch (e) { /* the old progress stays where it was */ }
+  }
+
+  // Data arrived from GitHub, another tab or a backup file.
+  function afterDataChange() {
+    learnToG();
+    rerender();
+  }
+
   // Save migrated data in the new format straight away.
   writeLocal();
-  route();
+  migrateLearn();
+  learnToG();
+  if (window.G) G.persist = persistLearn;
+
+  window.Drill = {
+    show,
+    fill,
+    title: (view) => TITLES[view] || "Drill",
+    count: () => QUESTIONS.length,
+    chapterCount: (n) => (BY_CH.get(n) || []).length,
+  };
+
   Sync.start();
 })();

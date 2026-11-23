@@ -1,4 +1,5 @@
-/* Define, visually — core: helpers, stats, router, chapter renderer, blind check engine */
+/* CSSGB Prep — core: helpers, stats, router, chapter renderer, blind check engine.
+   The practice drill (js/drill.js) plugs into the router under #/drill. */
 (function () {
   "use strict";
   const G = (window.G = { chapters: {}, order: [], W: {}, pages: {} });
@@ -15,7 +16,9 @@
   G.html = (el, s) => { el.innerHTML = s; return el; };
   G.LETTERS = ["A", "B", "C", "D", "E"];
 
-  /* ---------- storage (best-effort; never required) ---------- */
+  /* ---------- storage (best-effort; never required) ----------
+     Fallback only: once js/drill.js loads, study progress moves into the drill's synced record
+     and G.persist is replaced. */
   const KEY = "gbLearn.v1";
   G.load = () => { try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { return {}; } };
   G.save = (o) => { try { localStorage.setItem(KEY, JSON.stringify(o)); } catch (e) { /* private mode etc. */ } };
@@ -82,6 +85,7 @@
   /* ---------- tabs ---------- */
   const TABS = [
     { id: "home", n: "Map", l: "Start here", c: "--cx", word: true },
+    { id: "drill", n: "Drill", l: "Practice bank", c: "--belt", word: true },
     { gap: "Organization" },
     { id: "ch1", n: "1", l: "Goals, history", c: "--c1" },
     { id: "ch2", n: "2", l: "Lean", c: "--c2" },
@@ -126,8 +130,9 @@
       const best = G.state.best[t.id];
       const ch = G.chapters[t.id];
       const done = best && ch ? `<span class="done" title="Best blind-check score">${best}/${ch.check.length}</span>` : "";
+      const label = t.id === "drill" && window.Drill ? `${window.Drill.count()} questions` : t.l;
       return `<a class="tab" href="#/${t.id === "home" ? "" : t.id}" style="--tc: var(${t.c})" ${t.id === active ? 'aria-current="page"' : ""}>
-        <span class="${t.word ? "tab-w" : "tab-n"}">${t.word ? t.n : t.n}</span><span class="tab-l">${t.l}</span>${done}</a>`;
+        <span class="${t.word ? "tab-w" : "tab-n"}">${t.n}</span><span class="tab-l">${label}</span>${done}</a>`;
     }).join("");
   }
   G.drawTabs = drawTabs;
@@ -155,13 +160,18 @@
         <p class="lede">${ch.lede}</p>
       </header>
       <div class="legend small" aria-hidden="true">${["Remember", "Understand", "Apply", "Analyze", "Evaluate", "Create"].filter((l) => secs.some((x) => x.level === l)).map((l) => `<span><i class="dot lvdot lv-${l}" style="width:10px;height:10px;border-radius:50%;display:inline-block"></i>${l}</span>`).join("")}<span><b>HY</b> high yield</span></div>
-      <ul class="toc">${toc}<li><a href="#/${ch.id}/check"><span class="lvdot" style="background:var(--ink)"></span><span class="tl">Blind check (${ch.check.length} questions)</span></a></li></ul>
+      <ul class="toc">${toc}<li><a href="#/${ch.id}/check"><span class="lvdot" style="background:var(--ink)"></span><span class="tl">Blind check (${ch.check.length} questions)</span></a></li>${window.Drill ? `<li><a href="#/${ch.id}/drill"><span class="lvdot" style="background:var(--belt)"></span><span class="tl">Drill questions (${window.Drill.chapterCount(ch.num)})</span></a></li>` : ""}</ul>
       ${body}
       <section class="check" id="${ch.id}-check" aria-labelledby="${ch.id}-check-h">
         <h2 id="${ch.id}-check-h">Blind check</h2>
-        <p class="soft">Answer every question first. The key and the reasoning behind each wrong option appear only after you submit. For volume, drill the ${ch.drill || 22} Chapter ${ch.num} questions in <a href="../#/">Green Belt Drill</a>.</p>
+        <p class="soft">Answer every question first. The key and the reasoning behind each wrong option appear only after you submit.</p>
         <div data-check="${ch.id}"></div>
       </section>
+      ${window.Drill ? `<section class="practice" id="${ch.id}-drill" aria-labelledby="${ch.id}-drill-h">
+        <h2 id="${ch.id}-drill-h">Drill questions</h2>
+        <p class="soft">For volume: the practice bank's Chapter ${ch.num} questions, scored and saved with the rest of your drill history.</p>
+        <div data-drill="chapter:${ch.num}"></div>
+      </section>` : ""}
       <p class="foot">Study notes written in plain language from the ASQ CSSGB Handbook chapter and the 2022 CSSGB Body of Knowledge. Page numbers match your handbook copy.</p>`;
   }
 
@@ -235,14 +245,54 @@
     });
     G.$$("[data-check]", root).forEach((el) => { const ch = G.chapters[el.dataset.check]; G.mountCheck(el, ch.id, ch.check); });
     G.$$("[data-rev]", root).forEach((el) => el.addEventListener("change", () => { G.state.rev[el.dataset.rev] = el.checked; G.persist(); }));
+    if (window.Drill) window.Drill.fill(root);
   };
 
+  /* Progress changed elsewhere (another device, another tab, a backup file): update what's on screen
+     without re-rendering, so open tools keep their state. */
+  G.refreshProgress = () => {
+    const sheet = G.$("#sheet");
+    if (!sheet) return;
+    drawTabs(sheet.dataset.view);
+    G.$$("[data-rev]", sheet).forEach((el) => { el.checked = !!G.state.rev[el.dataset.rev]; });
+    if (window.Drill) window.Drill.fill(sheet);
+  };
+
+  /* The phone tab bar is fixed to the bottom; sticky bars sit just above it. */
+  function syncTabbar() {
+    const nav = G.$("#tabs");
+    if (!nav) return;
+    const cs = getComputedStyle(nav);
+    const h = cs.position === "fixed" && cs.display !== "none" ? nav.getBoundingClientRect().height : 0;
+    document.documentElement.style.setProperty("--tabbar-h", `${Math.round(h)}px`);
+  }
+
   /* ---------- router ---------- */
+  // Bookmarks from the old stand-alone drill app (#/quiz, #/results, #/saved, #/sync)
+  const OLD_DRILL = { quiz: 1, results: 1, saved: 1, sync: 1 };
   function route() {
     const parts = location.hash.replace(/^#\/?/, "").split("/").filter(Boolean);
     const id = parts[0] || "home";
     const sec = parts[1];
     const sheet = G.$("#sheet");
+    if (OLD_DRILL[id] && window.Drill) { location.replace(`#/drill/${id}`); return; }
+    if (id === "drill" && window.Drill) {
+      const view = sec || "home";
+      const first = sheet.dataset.view !== "drill";
+      if (first) {
+        sheet.dataset.view = "drill";
+        document.documentElement.style.setProperty("--acc", `var(${G.colorOf("drill")})`);
+        sheet.innerHTML = '<div class="drill" id="drill"></div>';
+        drawTabs("drill");
+      }
+      document.documentElement.dataset.route = `drill-${view}`;
+      document.title = `${window.Drill.title(view)} | CSSGB Prep`;
+      window.Drill.show(view, G.$("#drill", sheet));
+      if (first && view !== "quiz") sheet.focus({ preventScroll: true });
+      syncTabbar();
+      return;
+    }
+    document.documentElement.dataset.route = G.chapters[id] || G.pages[id] ? id : "home";
     let html, title;
     if (G.chapters[id]) { html = renderChapter(G.chapters[id]); title = `Ch ${G.chapters[id].num} ${G.chapters[id].title}`; }
     else if (G.pages[id]) { html = G.pages[id].render(); title = G.pages[id].title; }
@@ -255,13 +305,18 @@
       G.mountAll(sheet);
       if (G.pages[key] && G.pages[key].after) G.pages[key].after(sheet);
       drawTabs(key);
-      document.title = `${title} | CSSGB, visually`;
+      document.title = `${title} | CSSGB Prep`;
       if (!sec) { window.scrollTo(0, 0); sheet.focus({ preventScroll: true }); }
     }
     if (sec) {
       const target = document.getElementById(`${key}-${sec}`);
       if (target) requestAnimationFrame(() => target.scrollIntoView({ block: "start" }));
     }
+    syncTabbar();
   }
-  G.boot = () => { window.addEventListener("hashchange", route); route(); };
+  G.boot = () => {
+    window.addEventListener("hashchange", route);
+    window.addEventListener("resize", syncTabbar);
+    route();
+  };
 })();
