@@ -134,7 +134,8 @@
     render: () => `
       <h1>CSSGB Prep</h1>
       <p class="lede">Study the whole CSSGB Body of Knowledge — all 24 handbook chapters, every topic paired with a picture or a working tool, the trap ASQ sets and the page to tab in your binder — then drill the practice bank. Both keep one progress record.</p>
-      <div class="row" style="margin-top:1rem">${PHASES.map((p) => link("#/" + p.start, `Start ${p.name} (Ch ${G.chapters[p.start].num})`, p.id === "org")).join("")}${link("#/traps", "Open the traps lab")}${link("#/binder", "See what to tab")}</div>
+      <div class="row" style="margin-top:1rem">${PHASES.map((p) => link("#/" + p.start, `Start ${p.name} (Ch ${G.chapters[p.start].num})`, p.id === "org" && !continueLink())).join("")}${link("#/traps", "Open the traps lab")}${link("#/binder", "See what to tab")}</div>
+      ${continueLink()}
       <div data-drill="home"></div>
       <h2 style="margin-top:2rem">Where the depth is</h2>
       <p class="soft">Each tile is a BoK subtopic, shaded by the highest cognitive level ASQ will test. ASQ publishes phase totals, not a split by subtopic — so shading tells you <i>how</i> you'll be asked, not how often.</p>
@@ -290,6 +291,23 @@
   let filt = "all";
   const PH_BTNS = [["all", "All"], ["org", "Organization"], ["define", "Define"], ["measure", "Measure"], ["analyze", "Analyze"], ["improve", "Improve"], ["control", "Control"]];
   const CH_OF = { org: ["ch1", "ch2", "ch3"], define: ["ch4", "ch5", "ch6", "ch7", "ch8", "ch9"], measure: ["ch10", "ch11", "ch12", "ch13", "ch14", "ch15"], analyze: ["ch16", "ch17", "ch18"], improve: ["ch19", "ch20", "ch21"], control: ["ch22", "ch23", "ch24"] };
+  // "Continue where you left off" — the last topic you were reading
+  function continueLink() {
+    const last = G.state.last;
+    if (!last || !last.h) return "";
+    const [, id, sec] = last.h.split("/");
+    const ch = G.chapters[id], pg = G.pages[id];
+    if (!ch && !pg) return "";
+    let label = ch ? `Ch ${ch.num} ${ch.title}` : pg.title;
+    if (ch && sec) {
+      const s = ch.sections.find((x) => x.id === sec);
+      if (s) label += `: ${s.title}`;
+      else if (sec === "check") label += ": blind check";
+      else if (sec === "drill") label += ": drill questions";
+    }
+    return `<div class="row continue" style="margin-top:1.1rem;align-items:center">${link(last.h, "Continue where you left off", true)}<span class="soft small">${label}</span></div>`;
+  }
+
   G.page("traps", {
     title: "Traps lab",
     render: () => `

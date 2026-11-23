@@ -25,7 +25,14 @@
   G.state = G.load();
   G.state.rev = G.state.rev || {};
   G.state.best = G.state.best || {};
+  G.state.w = G.state.w || {};         // what you did in each tool, replayed when the page opens
+  G.state.check = G.state.check || {}; // blind-check answers, submitted or not, and score history
+  G.state.last = G.state.last || null; // where you were reading
   G.persist = () => G.save(G.state);
+  // Many small changes (a slider being dragged) are saved once they settle.
+  let persistTimer = null;
+  G.persistSoon = (ms = 400) => { clearTimeout(persistTimer); persistTimer = setTimeout(() => G.persist(), ms); };
+  window.addEventListener("pagehide", () => { if (persistTimer) { clearTimeout(persistTimer); G.persist(); } });
 
   /* ---------- statistics ---------- */
   // Complementary error function, Numerical Recipes erfcc (fractional error < 1.2e-7 everywhere, good in the tails)
@@ -177,8 +184,16 @@
 
   /* ---------- blind check engine ---------- */
   G.mountCheck = (root, chId, qs) => {
+    const saved = G.state.check[chId];
     const answers = new Array(qs.length).fill(null);
     let submitted = false;
+    let hist = [];
+    if (saved && Array.isArray(saved.a) && saved.a.length === qs.length) {
+      saved.a.forEach((a, i) => { if (Number.isInteger(a) && a >= 0 && a < qs[i].o.length) answers[i] = a; });
+      submitted = saved.s === 1 && answers.every((a) => a !== null);
+      hist = Array.isArray(saved.h) ? saved.h.slice(-30) : [];
+    }
+    const remember = () => { G.state.check[chId] = { a: answers.slice(), s: submitted ? 1 : 0, h: hist.slice(-30), t: Date.now() }; G.persistSoon(150); };
     function draw() {
       root.innerHTML = `
         <form class="qs" novalidate>
@@ -203,7 +218,7 @@
       const upd = () => { const n = answers.filter((a) => a !== null).length; count.textContent = submitted ? "" : `${n} of ${qs.length} answered`; };
       upd();
       G.$$("input[type=radio]", root).forEach((inp) => inp.addEventListener("change", () => {
-        const i = +inp.name.split("-q")[1]; answers[i] = +inp.value; upd();
+        const i = +inp.name.split("-q")[1]; answers[i] = +inp.value; upd(); remember();
       }));
       const sub = G.$('[data-act="submit"]', root);
       if (sub) sub.addEventListener("click", () => {
@@ -211,12 +226,13 @@
         if (n < qs.length) { count.textContent = `Answer all ${qs.length} first — ${qs.length - n} left. (The real exam has no penalty for guessing, so practise committing.)`; return; }
         submitted = true;
         const score = qs.reduce((s, q, i) => s + (answers[i] === q.a ? 1 : 0), 0);
-        G.state.best[chId] = Math.max(G.state.best[chId] || 0, score); G.persist(); drawTabs(chId);
+        hist.push([Date.now(), score]);
+        G.state.best[chId] = Math.max(G.state.best[chId] || 0, score); remember(); G.persist(); drawTabs(chId);
         draw();
         renderKey(score);
       });
       const rst = G.$('[data-act="reset"]', root);
-      if (rst) rst.addEventListener("click", () => { submitted = false; answers.fill(null); draw(); });
+      if (rst) rst.addEventListener("click", () => { submitted = false; answers.fill(null); remember(); draw(); });
       if (submitted) renderKey(qs.reduce((s, q, i) => s + (answers[i] === q.a ? 1 : 0), 0));
     }
     function renderKey(score) {
@@ -236,12 +252,101 @@
     draw();
   };
 
+  /* ---------- tool memory ----------
+     Every tool remembers what you did in it: the buttons and chips you pressed and the values you
+     entered, in order. When the page opens again the steps are replayed, so sorting drills keep their
+     answers, decision trees keep their path and calculators keep their numbers. Reset / Start over
+     clears a tool's memory. Tools that draw random samples get fresh samples on replay. */
+  const W_MAX = 600;
+  let replaying = false;
+  const pathOf = (root, node) => {
+    const p = [];
+    while (node && node !== root) {
+      const par = node.parentElement;
+      if (!par) return null;
+      p.unshift(Array.prototype.indexOf.call(par.children, node));
+      node = par;
+    }
+    return node === root ? p.join(".") : null;
+  };
+  const nodeAt = (root, path) => {
+    let n = root;
+    if (path) for (const i of path.split(".")) { n = n && n.children[+i]; if (!n) return null; }
+    return n;
+  };
+  const isReset = (n) => n.hasAttribute("data-reset") || /^(reset|restart)$/.test(n.dataset.a || "") || /^(reset|start over|clear)$/i.test((n.textContent || "").trim());
+  function clickable(root, t) {
+    for (let n = t; n && n !== root; n = n.parentElement) {
+      if (/^(INPUT|SELECT|TEXTAREA|OPTION|LABEL|A)$/.test(n.tagName)) return null; // values are recorded from their change events
+      if (n.tagName === "BUTTON" || n.getAttribute("role") === "button" || Array.from(n.attributes).some((a) => a.name.startsWith("data-")) || n.classList.contains("chip")) return n;
+    }
+    return null;
+  }
+  function trackTool(el, key) {
+    let log = (G.state.w[key] && Array.isArray(G.state.w[key].e)) ? G.state.w[key].e.slice() : [];
+    const save = () => { G.state.w[key] = { e: log, t: Date.now() }; G.persistSoon(); };
+    const push = (ev) => { if (log.length < W_MAX) { log.push(ev); save(); } };
+    el.addEventListener("click", (e) => {
+      if (replaying) return;
+      const n = clickable(el, e.target);
+      if (!n) return;
+      if (isReset(n)) { log = []; save(); return; }
+      const p = pathOf(el, n);
+      if (p !== null) push(["k", p]);
+    }, true); // capture: record before the tool redraws itself
+    // Enter / Space on a focusable chart element does what a click does; buttons already fire a click.
+    el.addEventListener("keydown", (e) => {
+      if (replaying || (e.key !== "Enter" && e.key !== " ")) return;
+      const n = e.target;
+      if (n === el || /^(INPUT|SELECT|TEXTAREA|BUTTON|A)$/.test(n.tagName) || !n.hasAttribute("tabindex")) return;
+      const p = pathOf(el, n);
+      if (p !== null) push(["k", p]);
+    }, true);
+    const onValue = (e) => {
+      if (replaying) return;
+      const n = e.target;
+      if (!/^(INPUT|SELECT|TEXTAREA)$/.test(n.tagName) || n.type === "file") return;
+      const p = pathOf(el, n);
+      if (p === null) return;
+      if (n.type === "checkbox" || n.type === "radio") { if (e.type === "change") push(["c", p, !!n.checked]); return; }
+      const ev = ["v", p, e.type, String(n.value).slice(0, 200)];
+      const last = log[log.length - 1];
+      if (last && last[0] === "v" && last[1] === p && last[2] === e.type) { log[log.length - 1] = ev; save(); }
+      else push(ev);
+    };
+    el.addEventListener("input", onValue, true);
+    el.addEventListener("change", onValue, true);
+  }
+  function replayTool(el, log) {
+    replaying = true;
+    try {
+      for (const ev of log) {
+        const n = nodeAt(el, ev[1]);
+        if (!n) continue;
+        if (ev[0] === "k") n.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+        else if (ev[0] === "c") { n.checked = ev[2]; n.dispatchEvent(new Event("change", { bubbles: true })); }
+        else if (ev[0] === "v") { n.value = ev[3]; n.dispatchEvent(new Event(ev[2], { bubbles: true })); }
+      }
+    } catch (e) { console.warn("Could not restore a tool", e); }
+    finally { replaying = false; }
+  }
+
   /* ---------- mount widgets after render ---------- */
   G.mountAll = (root) => {
+    const page = root.dataset.view || "page";
+    const seen = {};
     G.$$("[data-w]", root).forEach((el) => {
-      const f = G.W[el.dataset.w];
-      if (f) { try { f(el); } catch (e) { el.innerHTML = `<p class="feedback bad">This tool failed to load: ${G.esc(e.message)}</p>`; console.error(e); } }
-      else el.innerHTML = `<p class="feedback bad">Missing tool: ${G.esc(el.dataset.w)}</p>`;
+      const name = el.dataset.w;
+      const f = G.W[name];
+      if (f) {
+        try { f(el); } catch (e) { el.innerHTML = `<p class="feedback bad">This tool failed to load: ${G.esc(e.message)}</p>`; console.error(e); return; }
+        seen[name] = (seen[name] || 0) + 1;
+        const key = `${page}/${name}${seen[name] > 1 ? "-" + seen[name] : ""}`;
+        const mem = G.state.w[key];
+        if (mem && Array.isArray(mem.e) && mem.e.length) replayTool(el, mem.e);
+        trackTool(el, key);
+      }
+      else el.innerHTML = `<p class="feedback bad">Missing tool: ${G.esc(name)}</p>`;
     });
     G.$$("[data-check]", root).forEach((el) => { const ch = G.chapters[el.dataset.check]; G.mountCheck(el, ch.id, ch.check); });
     G.$$("[data-rev]", root).forEach((el) => el.addEventListener("change", () => { G.state.rev[el.dataset.rev] = el.checked; G.persist(); }));
@@ -257,6 +362,21 @@
     G.$$("[data-rev]", sheet).forEach((el) => { el.checked = !!G.state.rev[el.dataset.rev]; });
     if (window.Drill) window.Drill.fill(sheet);
   };
+
+  /* Where you were reading: the topic at the top of the screen, saved as you scroll. */
+  let posTimer = null;
+  function notePosition() {
+    const sheet = G.$("#sheet");
+    const key = sheet && sheet.dataset.view;
+    if (!key || key === "home" || key === "drill") return;
+    let sec = "";
+    G.$$("section[id]", sheet).forEach((s) => { if (s.getBoundingClientRect().top < 140 && s.id.startsWith(key + "-")) sec = s.id.slice(key.length + 1); });
+    const h = `#/${key}${sec ? "/" + sec : ""}`;
+    if (!G.state.last || G.state.last.h !== h) { G.state.last = { h, t: Date.now() }; savePosSoon(); }
+  }
+  let posSaveTimer = null;
+  const savePosSoon = () => { if (!posSaveTimer) posSaveTimer = setTimeout(() => { posSaveTimer = null; G.persist(); }, 1500); };
+  window.addEventListener("scroll", () => { clearTimeout(posTimer); posTimer = setTimeout(notePosition, 400); }, { passive: true });
 
   /* The phone tab bar is fixed to the bottom; sticky bars sit just above it. */
   function syncTabbar() {
@@ -313,6 +433,7 @@
       if (target) requestAnimationFrame(() => target.scrollIntoView({ block: "start" }));
     }
     syncTabbar();
+    setTimeout(notePosition, 600);
   }
   G.boot = () => {
     window.addEventListener("hashchange", route);

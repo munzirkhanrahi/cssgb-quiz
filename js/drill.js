@@ -29,6 +29,9 @@
        session:   the current quiz, with t = last change          resumes on any device
        learn:     study pages: rev { "ch10/maps": { v, t } }      last change wins per topic
                                best { ch10: 6 }                   highest blind-check score wins
+                               w { "ch10/pareto10": { e, t } }    steps taken in each tool; last change wins
+                               check { ch10: { a, s, h, t } }     blind-check answers + score history; last wins
+                               last { h, t }                      where you were reading; last wins
      ===================================================================== */
   const blank = () => ({
     v: 2,
@@ -39,7 +42,7 @@
     selected: [],
     selectedT: 0,
     session: null,
-    learn: { rev: {}, best: {} },
+    learn: { rev: {}, best: {}, w: {}, check: {}, last: null },
   });
 
   const num = (x) => (typeof x === "number" && isFinite(x) ? x : 0);
@@ -68,9 +71,37 @@
     };
   }
 
+  const PATH_RE = /^(\d{1,4}(\.\d{1,4}){0,24})?$/;
+  function cleanToolLog(e) {
+    if (!Array.isArray(e)) return null;
+    const out = [];
+    for (const ev of e.slice(0, 600)) {
+      if (!Array.isArray(ev) || typeof ev[1] !== "string" || !PATH_RE.test(ev[1])) continue;
+      if (ev[0] === "k" && ev.length === 2) out.push(["k", ev[1]]);
+      else if (ev[0] === "c" && typeof ev[2] === "boolean") out.push(["c", ev[1], ev[2]]);
+      else if (ev[0] === "v" && (ev[2] === "input" || ev[2] === "change") && typeof ev[3] === "string") out.push(["v", ev[1], ev[2], ev[3].slice(0, 200)]);
+    }
+    return out;
+  }
   function cleanLearn(raw) {
-    const out = { rev: {}, best: {} };
+    const out = { rev: {}, best: {}, w: {}, check: {}, last: null };
     if (!raw || typeof raw !== "object") return out;
+    if (raw.w && typeof raw.w === "object" && !Array.isArray(raw.w)) {
+      for (const [k, r] of Object.entries(raw.w)) {
+        if (!/^[a-z0-9-]{1,20}\/[a-z0-9]{1,30}(-\d{1,2})?$/.test(k) || !r) continue;
+        const e = cleanToolLog(r.e);
+        if (e) out.w[k] = { e, t: num(r.t) };
+      }
+    }
+    if (raw.check && typeof raw.check === "object" && !Array.isArray(raw.check)) {
+      for (const [k, r] of Object.entries(raw.check)) {
+        if (!/^ch\d{1,2}$/.test(k) || !r || !Array.isArray(r.a) || r.a.length > 30) continue;
+        const a = r.a.map((x) => (Number.isInteger(x) && x >= 0 && x <= 5 ? x : null));
+        const h = Array.isArray(r.h) ? r.h.filter((x) => Array.isArray(x) && typeof x[0] === "number" && Number.isInteger(x[1]) && x[1] >= 0 && x[1] <= 30).slice(-30).map((x) => [x[0], x[1]]) : [];
+        out.check[k] = { a, s: r.s === 1 ? 1 : 0, h, t: num(r.t) };
+      }
+    }
+    if (raw.last && typeof raw.last.h === "string" && /^#\/[a-z0-9-]{1,20}(\/[a-z0-9-]{1,40})?$/.test(raw.last.h)) out.last = { h: raw.last.h, t: num(raw.last.t) };
     if (raw.rev && typeof raw.rev === "object" && !Array.isArray(raw.rev)) {
       for (const [k, r] of Object.entries(raw.rev)) {
         if (/^ch\d{1,2}\/[a-z0-9-]{1,40}$/.test(k) && r && (r.v === 0 || r.v === 1)) out.rev[k] = { v: r.v, t: num(r.t) };
@@ -160,6 +191,12 @@
     out.learn = { rev: Object.assign({}, a.learn.rev), best: Object.assign({}, a.learn.best) };
     for (const [k, r] of Object.entries(b.learn.rev)) if (!out.learn.rev[k] || r.t > out.learn.rev[k].t) out.learn.rev[k] = r;
     for (const [k, n] of Object.entries(b.learn.best)) if (n > (out.learn.best[k] || 0)) out.learn.best[k] = n;
+    for (const part of ["w", "check"]) {
+      out.learn[part] = Object.assign({}, a.learn[part]);
+      for (const [k, r] of Object.entries(b.learn[part])) if (!out.learn[part][k] || r.t > out.learn[part][k].t) out.learn[part][k] = r;
+    }
+    const la = a.learn.last, lb = b.learn.last;
+    out.learn.last = !la ? lb : !lb ? la : lb.t > la.t ? lb : la;
     return out;
   }
 
@@ -170,8 +207,12 @@
     let revMax = 0, bestSum = 0;
     for (const r of Object.values(s.learn.rev)) revMax = Math.max(revMax, r.t);
     for (const n of Object.values(s.learn.best)) bestSum += n;
+    let wMax = 0, cMax = 0;
+    for (const r of Object.values(s.learn.w)) wMax = Math.max(wMax, r.t);
+    for (const r of Object.values(s.learn.check)) cMax = Math.max(cMax, r.t);
     return [s.attempts.length, lastT, Object.keys(s.saved).length, savedMax, s.settingsT, s.selectedT, s.session ? s.session.t : 0,
-      Object.keys(s.learn.rev).length, revMax, Object.keys(s.learn.best).length, bestSum].join("|");
+      Object.keys(s.learn.rev).length, revMax, Object.keys(s.learn.best).length, bestSum,
+      Object.keys(s.learn.w).length, wMax, Object.keys(s.learn.check).length, cMax, s.learn.last ? s.learn.last.t : 0].join("|");
   }
 
   /* ---------------- local storage ---------------- */
@@ -917,7 +958,7 @@
 
       <section class="panel">
         <h3>What's being kept</h3>
-        <p>${plural(total, "answer")} across ${plural(Object.keys(hist).length, "question")}, ${plural(savedIds().length, "saved question")}, your settings, and the quiz you're in. Every answer is kept with its time and the choice you picked. From the study pages: ${plural(Object.values(state.learn.rev).filter((r) => r.v === 1).length, "topic")} marked “I can explain this” and blind-check best scores for ${plural(Object.keys(state.learn.best).length, "chapter")}.</p>
+        <p>${plural(total, "answer")} across ${plural(Object.keys(hist).length, "question")}, ${plural(savedIds().length, "saved question")}, your settings, and the quiz you're in. Every answer is kept with its time and the choice you picked. From the study pages: ${plural(Object.values(state.learn.rev).filter((r) => r.v === 1).length, "topic")} marked “I can explain this” and blind-check best scores for ${plural(Object.keys(state.learn.best).length, "chapter")}, your blind-check answers in ${plural(Object.keys(state.learn.check).length, "chapter")}, what you did in ${plural(Object.values(state.learn.w).filter((r) => r.e.length).length, "tool")}, and where you were reading.</p>
         <div id="sync-status">${syncStatusHtml()}</div>
       </section>
 
@@ -1238,6 +1279,9 @@
     for (const [k, r] of Object.entries(state.learn.rev)) if (r.v === 1) rev[k] = true;
     G.state.rev = rev;
     G.state.best = Object.assign({}, state.learn.best);
+    G.state.w = JSON.parse(JSON.stringify(state.learn.w));
+    G.state.check = JSON.parse(JSON.stringify(state.learn.check));
+    G.state.last = state.learn.last ? Object.assign({}, state.learn.last) : null;
   }
 
   // The study pages call G.persist() after a change; stamp what changed and save it.
@@ -1252,6 +1296,19 @@
     }
     for (const [k, n] of Object.entries(G.state.best || {})) {
       if (/^ch\d{1,2}$/.test(k) && Number.isInteger(n) && n > (L.best[k] || 0)) { L.best[k] = n; changed = true; }
+    }
+    for (const part of ["w", "check"]) {
+      for (const [k, r] of Object.entries(G.state[part] || {})) {
+        if (r && typeof r.t === "number" && (!L[part][k] || r.t > L[part][k].t)) {
+          const clean = cleanLearn({ [part]: { [k]: r } })[part][k];
+          if (clean) { L[part][k] = clean; changed = true; }
+        }
+      }
+    }
+    const gl = G.state.last;
+    if (gl && typeof gl.t === "number" && (!L.last || gl.t > L.last.t)) {
+      const clean = cleanLearn({ last: gl }).last;
+      if (clean) { L.last = clean; changed = true; }
     }
     if (changed) commit();
   }

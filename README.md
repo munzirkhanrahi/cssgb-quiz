@@ -29,13 +29,17 @@ Interactive, visual notes for all 24 handbook chapters — Chapters 1–3 (Six S
 
 ## Where progress is stored
 
-One record holds everything: every drill answer (with its time and the choice picked), saved and unsaved questions, settings, chapter selection, the quiz in progress, the study topics you mark "I can explain this without looking", and your best blind-check score per chapter.
+One record holds everything:
+
+- **Drill:** every answer (with its time and the choice picked), saved and unsaved questions, settings, chapter selection and the quiz in progress.
+- **Study pages:** the topics you mark "I can explain this without looking"; blind-check answers (even before you submit), each submitted score and your best per chapter; and where you were reading, offered on the home page as "Continue where you left off".
+- **Every tool:** sorting drills, decision trees and calculators remember what you did — the chips and buttons you pressed and the values you entered — and replay it when the page opens. Reset, Start over and Clear wipe that tool's memory. Tools that draw random samples get fresh samples when replayed.
 
 1. **In the browser**, written the moment anything changes. The site also asks the browser to treat the storage as persistent.
 2. **In a secret gist in your GitHub account**, once sync is turned on (Drill → Sync and backup → paste a token with only the `gist` scope). Changes are pushed a few seconds after they happen and again when the tab is hidden or closed. On load, and whenever the tab comes back into view, the site pulls the gist and merges it, so you can switch between laptop and phone.
 3. **As a backup file** you can download and load back in from the same screen.
 
-Merging never loses answers: attempts from all devices are combined; for saved questions, settings, the current quiz and each reviewed topic, the most recent change wins; blind-check bests keep the highest score.
+Merging never loses answers: attempts from all devices are combined; for saved questions, settings, the current quiz, each reviewed topic, each tool, each blind check and the reading position, the most recent change wins; blind-check bests keep the highest score.
 
 Progress from the two earlier sites carries over: the quiz already used this record, and the study guide's ticks and scores are moved into it the first time the merged site opens in that browser. The storage keys, gist file name (`green-belt-drill.json`) and backup format are unchanged, so existing sync setups and backup files keep working.
 
