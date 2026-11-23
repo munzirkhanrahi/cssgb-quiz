@@ -3,8 +3,8 @@
   "use strict";
   const { $, $$ } = G;
   const CC = {};
-  [1, 2, 3, 4, 5, 6, 7, 8, 9, 19, 20, 21, 22, 23, 24].forEach((n) => { CC["ch" + n] = "--c" + n; });
-  const PHASE_OF = (ch) => (+ch.slice(2) <= 3 ? "org" : +ch.slice(2) <= 9 ? "define" : +ch.slice(2) <= 21 ? "improve" : "control");
+  [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24].forEach((n) => { CC["ch" + n] = "--c" + n; });
+  const PHASE_OF = (ch) => { const n = +ch.slice(2); return n <= 3 ? "org" : n <= 9 ? "define" : n <= 15 ? "measure" : n <= 18 ? "analyze" : n <= 21 ? "improve" : "control"; };
   const secTitle = (ch, sec) => G.chapters[ch].sections.find((s) => s.id === sec).title;
   const link = (href, label, primary) => `<a class="btn${primary ? " primary" : ""}" href="${href}" style="display:inline-flex;align-items:center;text-decoration:none">${label}</a>`;
 
@@ -22,6 +22,19 @@
       ["ch7", "II.D", [["II.D", "Eight M&P tools", "Apply", "eight"]]],
       ["ch8", "II.E", [["II.E.1", "Process performance", "Analyze", "dpmo"], ["II.E.2", "Communication", "Apply", "comm"]]],
       ["ch9", "II.F", [["II.F.1", "Stages & dynamics", "Understand", "stages"], ["II.F.2", "Roles & RACI", "Apply", "roles"], ["II.F.3", "Team tools", "Apply", "tools"], ["II.F.4", "Team communication", "Apply", "tcomm"]]]
+    ]},
+    { id: "measure", name: "Measure", q: 20, chs: "10–15", start: "ch10", rows: [
+      ["ch10", "III.A", [["III.A", "Process maps, procedures, flowcharts", "Create", "maps"]]],
+      ["ch11", "III.B", [["III.B.1", "Probability rules, counting", "Understand", "rules"], ["III.B.2", "Central limit theorem", "Understand", "clt"]]],
+      ["ch12", "III.C", [["III.C", "Six distributions", "Understand", "pick"]]],
+      ["ch13", "III.D", [["III.D.1", "Data types & scales", "Analyze", "types"], ["III.D.2", "Sampling & data plans", "Apply", "collect"], ["III.D.3", "Descriptive statistics", "Evaluate", "desc"], ["III.D.4", "Graphical methods", "Create", "graphs"]]],
+      ["ch14", "III.E", [["III.E", "GR&R, bias, linearity, agreement", "Evaluate", "grr"]]],
+      ["ch15", "III.F", [["III.F.1", "Natural vs spec limits", "Evaluate", "limits"], ["III.F.2", "Capability studies", "Evaluate", "study"], ["III.F.3", "Cp, Cpk, Pp, Ppk, Cpm", "Evaluate", "indices"], ["III.F.4", "Short vs long term, shift", "Evaluate", "shift"]]]
+    ]},
+    { id: "analyze", name: "Analyze", q: 18, chs: "16–18", start: "ch16", rows: [
+      ["ch16", "IV.A", [["IV.A.1", "Multi-vari studies", "Create", "multivari"], ["IV.A.2", "Correlation & regression", "Evaluate", "corr"]]],
+      ["ch17", "IV.B", [["IV.B.1", "Errors, power, sample size", "Apply", "basics"], ["IV.B.2", "Means, variances, proportions", "Analyze", "pick"]]],
+      ["ch18", "IV.C", [["IV.C.1", "Gap analysis", "Analyze", "gap"], ["IV.C.2", "Root cause analysis", "Analyze", "why"]]]
     ]},
     { id: "improve", name: "Improve", q: 16, chs: "19–21", start: "ch19", rows: [
       ["ch19", "V.A", [["V.A.1", "DOE basic terms", "Understand", "terms"], ["V.A.2", "Main-effect & interaction plots", "Apply", "effects"]]],
@@ -63,6 +76,36 @@
       ["ch9", "roles", "One A per RACI row. Process owner sustains gains; champion removes barriers."],
       ["ch7", "eight", "Know each tool's job and its look-alike: affinity vs digraph, matrix vs prioritization, tree vs PDPC."]
     ],
+    measure: [
+      ["ch15", "indices", "Cp/Cpk use within-subgroup σ (R̄/d₂); Pp/Ppk the overall s. Cpk ≤ Cp, equal only when centred."],
+      ["ch15", "limits", "Z = distance to the limit ÷ σ, then the normal table for % out. Natural limits are x̄ ± 3σ — the voice of the process."],
+      ["ch14", "grr", "%GRR under 10% OK, 10–30% conditional, over 30% not; ndc ≥ 5. AV subtracts EV² ÷ (n·r)."],
+      ["ch14", "interpret", "%Contribution (variances) is not %study variation (SDs) — find the base before applying a cut-off."],
+      ["ch15", "shift", "Short-term Z − 1.5 = long-term Z: 6σ → 3.4 ppm; a centred 3σ process → 1,350 ppm per side."],
+      ["ch11", "rules", "Mutually exclusive → add; independent → multiply. Exclusive events are dependent."],
+      ["ch12", "pick", "Defectives → binomial; defects → Poisson (mean = variance); σ unknown → t; variances → χ² or F."],
+      ["ch11", "clt", "Standard error = σ/√n; averages go normal; quadruple n to halve the SE."],
+      ["ch13", "graphs", "Run chart: too few runs → clustering or trend; too many → mixture or oscillation. Box-plot outliers lie beyond 1.5 × IQR."],
+      ["ch13", "types", "Nominal, ordinal, interval, ratio: a 1–5 rating is ordinal; °C is interval."],
+      ["ch13", "collect", "Stratify a mixed lot; sequential sampling for destructive tests; random needs a homogeneous lot."],
+      ["ch11", "counting", "Order matters → permutation; committees and samples → combination."],
+      ["ch10", "pareto", "A true Pareto: descending bars, “Other” last, cumulative line. Weight by cost or severity when the question does."],
+      ["ch10", "docs", "Procedure = what, why, where, when; work instruction adds who and how."]
+    ],
+    analyze: [
+      ["ch17", "pick", "Pick the test from what's compared — means (Z, t, paired t, ANOVA), variances (χ², F), counts (χ²) — then read its df."],
+      ["ch17", "basics", "Type I = α = reject a true H₀ (producer's risk); Type II = β; power = 1 − β. Never “accept” H₀."],
+      ["ch17", "two", "Same parts measured twice → paired t. Welch df rounds down. Test variances (F) before pooling."],
+      ["ch17", "power", "n = (Zσ ÷ E)², round up. Power rises with n, δ and α and falls with σ. Statistical ≠ practical significance."],
+      ["ch16", "corr", "Test r with df = n − 2. Correlation isn't causation; r measures linear association only."],
+      ["ch16", "regress", "Don't predict from a non-significant slope or outside the data; a prediction interval is wider than the CI."],
+      ["ch17", "anova", "F = MS between ÷ MS within, df (k − 1, N − k). Significant = at least one mean differs."],
+      ["ch17", "chisq", "χ² goodness of fit df = k − 1; contingency df = (r − 1)(c − 1); always right-tailed."],
+      ["ch16", "multivari", "Positional (within), cyclical (part-to-part), temporal (over time) — attack the biggest family first."],
+      ["ch18", "why", "Stop asking why at an actionable, system-level cause, and verify it by switching it on and off."],
+      ["ch18", "fta", "FTA is top-down: AND multiplies, OR = 1 − Π(1 − p). FMEA is bottom-up."],
+      ["ch18", "gap", "Gap analysis baselines predefined metrics before the change."]
+    ],
     improve: [
       ["ch21", "takt", "Takt = available time ÷ demand. Takt is the customer's pace; cycle time is the process's."],
       ["ch19", "effects", "Effect = average at + minus average at −. Check the interaction plot before dropping a factor."],
@@ -85,12 +128,12 @@
       ["ch23", "pdca", "SDCA holds the gain; PDCA/PDSA finds the next one."]
     ]
   };
-  const LEVELS = [["Remember", "recall a term"], ["Understand", "recognise and interpret"], ["Apply", "use it in a scenario"], ["Analyze", "break down scenarios and calculate"]];
+  const LEVELS = [["Remember", "recall a term"], ["Understand", "recognise and interpret"], ["Apply", "use it in a scenario"], ["Analyze", "break down scenarios and calculate"], ["Evaluate", "judge results against criteria"], ["Create", "build a chart, plan or study"]];
   G.page("home", {
     title: "Phase map",
     render: () => `
       <h1>CSSGB, visually</h1>
-      <p class="lede">Part I (Six Sigma and the organization) and the Define, Improve and Control phases of the CSSGB Handbook — Chapters 1–9 and 19–24, which together carry 62 of the 100 scored questions. Every topic pairs a picture or a working tool with the trap ASQ sets and the page to tab in your binder.</p>
+      <p class="lede">The whole CSSGB Body of Knowledge — all 24 chapters of the handbook, from Six Sigma and the organization through Define, Measure, Analyze, Improve and Control, carrying all 100 scored questions. Every topic pairs a picture or a working tool with the trap ASQ sets and the page to tab in your binder.</p>
       <div class="row" style="margin-top:1rem">${PHASES.map((p) => link("#/" + p.start, `Start ${p.name} (Ch ${G.chapters[p.start].num})`, p.id === "org")).join("")}${link("#/traps", "Open the traps lab")}${link("#/binder", "See what to tab")}</div>
       <h2 style="margin-top:2rem">Where the depth is</h2>
       <p class="soft">Each tile is a BoK subtopic, shaded by the highest cognitive level ASQ will test. ASQ publishes phase totals, not a split by subtopic — so shading tells you <i>how</i> you'll be asked, not how often.</p>
@@ -113,8 +156,8 @@
         ${G.tab("<p>What to tab or write in your handbook before exam day.</p>")}
         ${G.flag("<p>Where the handbook text or its scan is wrong, with the correct version.</p>")}
       </div>
-      <p>Each chapter ends with a <b>blind check</b>: answer everything, then see the key and why each wrong option is wrong. For volume, use <a href="../">Green Belt Drill</a> — 24 questions per Part I chapter, 22 per Define chapter, 33 per Improve chapter and 30 per Control chapter.</p>
-      <p class="foot">Study notes in plain language from the ASQ CSSGB Handbook (Chapters 1–9 and 19–24) and the 2022 CSSGB Body of Knowledge. Progress is saved in this browser only.</p>`
+      <p>Each chapter ends with a <b>blind check</b>: answer everything, then see the key and why each wrong option is wrong. For volume, use <a href="../">Green Belt Drill</a> — 24 questions per Part I chapter, 22 per Define chapter, 27 per Measure chapter, 33 per Analyze and Improve chapter, and 30 per Control chapter.</p>
+      <p class="foot">Study notes in plain language from the ASQ CSSGB Handbook (Chapters 1–24) and the 2022 CSSGB Body of Knowledge. Progress is saved in this browser only.</p>`
   });
 
   /* ---------- Traps lab ---------- */
@@ -171,7 +214,44 @@
     ["ch9", "Brainstorming vs nominal group technique", ["Brainstorming", "Open, fast, maximum creative ideas; creative then evaluation phase."], ["NGT", "Silent generation, round-robin, optional anonymity — for dominant members or sensitive topics."], "Dominant voices or sensitive topic → NGT.", "tools"],
     ["ch9", "Ranked vs weighted multivoting", ["Ranked", "Each member orders the options; shows order, not intensity."], ["Weighted", "Each member splits 100 points; intensity counts."], "They can disagree — use both and re-vote if close.", "tools"],
     ["ch9", "Consensus vs majority", ["Consensus", "Every member can support it."], ["Majority / unanimity", "Majority = more than half. Unanimity = everyone's first choice."], "Consensus is neither.", "decide"],
-    /* Improve */
+    ["ch10", "Flowchart vs process map", ["Flowchart", "Steps, decisions, inputs and outputs in standard symbols."], ["Process map", "A flowchart plus step data: cost, setup and cycle time, inventory, defects."], "Step-level times and costs → process map.", "maps"],
+    ["ch10", "Procedure vs work instruction", ["Procedure", "What, why, where and when."], ["Work instruction", "Who and how — step by step."], "“How” never belongs to the procedure.", "docs"],
+    ["ch10", "Pareto chart vs sorted bar chart", ["Pareto chart", "Descending bars, “Other” last, cumulative-percentage line on a second axis."], ["Bar chart", "Categories in any order, no cumulative line."], "Sorting the bars alone doesn't make a Pareto.", "pareto"],
+    ["ch10", "Nominal group technique vs multivoting", ["NGT", "Silent individual ranking, tallied — for sensitive topics or mixed ranks."], ["Multivoting", "Votes or points (100 in the handbook) spread over the options."], "Sensitive topic or a dominant boss → NGT.", "fishbone"],
+    ["ch11", "Mutually exclusive vs independent", ["Mutually exclusive", "Can't happen together: P(A and B) = 0. Add."], ["Independent", "One doesn't change the other: P(B | A) = P(B). Multiply."], "Exclusive events with P &gt; 0 are dependent.", "rules"],
+    ["ch11", "Permutation vs combination", ["Permutation", "Order matters: nPr = n! ÷ (n − r)!."], ["Combination", "Order doesn't: nCr = n! ÷ [r!(n − r)!]."], "Seats and rankings → P; teams and samples → C.", "counting"],
+    ["ch11", "Standard deviation vs standard error", ["Standard deviation σ", "Spread of individual values."], ["Standard error σ/√n", "Spread of sample means."], "p. 190 mislabels σ/√n as a sample standard deviation.", "clt"],
+    ["ch12", "Binomial vs Poisson", ["Binomial", "Defective units — each good or bad; mean np."], ["Poisson", "Defects — several per unit; mean = variance = λ."], "Read the noun: defectives vs defects.", "pois"],
+    ["ch12", "Z vs t", ["Z", "σ known, or n large."], ["t", "σ estimated by s; heavier tails; df = n − 1."], "t is never wrong; beyond about 30 they converge.", "sampling"],
+    ["ch12", "Chi-square vs F", ["Chi-square", "One variance; counts (goodness of fit, contingency); one df."], ["F", "Ratio of two variances; ANOVA; two df."], "Two variances → F.", "sampling"],
+    ["ch13", "Ordinal vs interval data", ["Ordinal", "Ordered, unknown gaps — ratings, criticality."], ["Interval", "Equal gaps, no true zero — °C."], "A 1–5 rating is ordinal.", "types"],
+    ["ch13", "Random vs stratified sampling", ["Random", "Homogeneous lot; every item has an equal chance."], ["Stratified", "Mixed lot — sample within each machine or stream."], "Mixed sources → stratify.", "collect"],
+    ["ch13", "s vs σ", ["s", "Sample: divide by n − 1."], ["σ", "Population: divide by N."], "Know your calculator's σₙ₋₁ and σₙ keys.", "desc"],
+    ["ch13", "Clustering vs mixtures", ["Clustering", "Too few runs about the median."], ["Mixtures", "Too many runs about the median."], "Few runs → clumps; many → alternating streams.", "graphs"],
+    ["ch13", "Characteristic life vs mean life (Weibull)", ["Characteristic life η", "63.2% failed, for any β."], ["Mean life (MTBF)", "η × Γ(1 + 1/β); equals η only when β = 1."], "The handbook conflates them (p. 232).", "probplot"],
+    ["ch14", "Repeatability vs reproducibility", ["Repeatability (EV)", "Same appraiser and gage, repeated — the gage's precision."], ["Reproducibility (AV)", "Differences between appraisers' averages — technique, training."], "EV → fix the gage; AV → train the people.", "terms"],
+    ["ch14", "Bias vs linearity", ["Bias", "Average offset from the master value."], ["Linearity", "Change in bias across the range — the slope."], "A flat bias line away from zero is bias, not nonlinearity.", "bias"],
+    ["ch14", "%Study variation vs %contribution", ["%Study variation", "GRR ÷ TV (standard deviations); 10% / 30% rule."], ["%Contribution", "GRR² ÷ TV² (variances); 1% / 9% rule; adds to 100%."], "Same gage: 26.7% vs 7.1%.", "interpret"],
+    ["ch14", "Within appraiser vs versus standard", ["Within appraiser", "Agrees with self — repeatability."], ["Versus standard", "Agrees with the expert — accuracy."], "Consistent isn't the same as correct.", "attr"],
+    ["ch14", "Product control vs process control GR&amp;R", ["Product control", "Sorting and inspection; judge against the tolerance."], ["Process control", "SPC and capability; parts span the range; judge against process variation."], "For process control, never pick parts at random.", "errors"],
+    ["ch15", "Cp vs Cpk", ["Cp", "Spread only — potential capability."], ["Cpk", "Distance to the nearer limit — actual; Cpk ≤ Cp."], "Re-centring changes Cpk, never Cp.", "indices"],
+    ["ch15", "Cpk vs Ppk", ["Cpk", "Within-subgroup σ (R̄/d₂) from a stable process."], ["Ppk", "Overall sample s from long-term data."], "It's which σ, not which formula.", "indices"],
+    ["ch15", "Cpk vs Cpm", ["Cpk", "Distance to the nearer specification limit."], ["Cpm", "Distance from the target."], "Target off the midpoint → Cpm.", "indices"],
+    ["ch15", "Natural process limits vs specification limits", ["Natural limits", "x̄ ± 3σ from the process — voice of the process."], ["Specification limits", "From the customer or engineering — voice of the customer."], "Stable is not the same as capable.", "limits"],
+    ["ch15", "Short-term vs long-term sigma", ["Short-term Z", "Within-subgroup variation; the quoted sigma level."], ["Long-term Z", "Includes drift: Z<sub>ST</sub> − 1.5."], "6σ short term = 4.5σ long term = 3.4 ppm.", "shift"],
+    ["ch16", "Correlation vs causation", ["Correlation", "Linear association — strength and direction."], ["Causation", "x changes y — needs a designed experiment."], "A lurking variable can drive both.", "corr"],
+    ["ch16", "Confidence interval vs prediction interval", ["CI for the mean", "Where the average y at x₀ lies."], ["Prediction interval", "Where one new y at x₀ will fall — always wider."], "Predicting one month's count → PI.", "regress"],
+    ["ch16", "Positional vs cyclical variation", ["Positional", "Within a piece or batch — taper, out-of-round, cavity."], ["Cyclical", "Piece-to-piece or lot-to-lot."], "Within vs between pieces.", "multivari"],
+    ["ch17", "Type I vs Type II error", ["Type I (α)", "Reject a true H₀ — false alarm; producer's risk."], ["Type II (β)", "Miss a false H₀ — consumer's risk; power = 1 − β."], "Power 0.8 → β = 0.2, not α.", "basics"],
+    ["ch17", "Fail to reject vs accept H₀", ["Fail to reject", "The evidence isn't strong enough."], ["Accept H₀", "Not a valid conclusion."], "“No difference” overstates — the handbook does it repeatedly.", "basics"],
+    ["ch17", "Paired vs two-sample t", ["Paired t", "Same units measured twice — analyze the differences."], ["Two-sample t", "Independent groups."], "Same CNC data: p 0.037 paired vs 0.255 pooled.", "two"],
+    ["ch17", "Pooled vs Welch t", ["Pooled", "Equal variances; df n₁ + n₂ − 2."], ["Welch", "Unequal variances; Satterthwaite df, rounded down."], "Test the variances with F first.", "two"],
+    ["ch17", "Statistical vs practical significance", ["Statistical", "The difference is probably real."], ["Practical", "The difference matters to the customer or business."], "A huge n makes trivial differences significant.", "power"],
+    ["ch17", "Goodness of fit vs contingency table", ["Goodness of fit", "One variable vs expected proportions; df k − 1."], ["Contingency", "Two variables; df (r − 1)(c − 1)."], "Contingency expected counts come from the totals.", "chisq"],
+    ["ch18", "FTA vs FMEA", ["FTA", "Top-down from one undesired event; AND/OR gates."], ["FMEA", "Bottom-up from failure modes to effects; RPN."], "Starts from the system failure → FTA.", "fta"],
+    ["ch18", "AND gate vs OR gate", ["AND", "All inputs needed — multiply."], ["OR", "Any input — 1 − Π(1 − p)."], "Summing is only an approximation for OR.", "fta"],
+    ["ch18", "Proactive vs reactive gap analysis", ["Proactive", "Before the launch or change."], ["Reactive", "After the launch or change."], "Timing decides.", "gap"],
+    ["ch18", "Root cause vs system-level root cause", ["Root cause", "Specific and actionable — no filter on the pump."], ["System-level cause", "The process breakdown that allowed it — no error-proofed PM."], "Prefer the system-level fix.", "why"],
     ["ch19", "Replication vs repetition", ["Replication", "Repeat the whole set of treatment combinations in random order, resetting each condition — captures setup-to-setup variation."], ["Repetition", "Rerun trials under the same setup without resetting — cheaper, but misses setup variation."], "The deciding word is reset.", "terms"],
     ["ch19", "Randomization vs blocking", ["Randomization", "Run order by chance, spreading unknown noise across all treatments."], ["Blocking", "Group runs by a known nuisance variable (shift, batch) so its effect can be separated."], "Known nuisance → block. Unknown noise → randomize.", "principles"],
     ["ch19", "Main effect vs interaction", ["Main effect", "Average at + minus average at − for one factor; a steep line on the main-effects plot."], ["Interaction", "One factor's effect depends on another's level; non-parallel or crossing lines."], "A flat main effect can hide a large interaction (Table 19.6: A ≈ 0.3, AB = 4.0).", "effects"],
@@ -186,7 +266,6 @@
     ["ch21", "Bottleneck vs capacity-constrained resource", ["Bottleneck", "Already sets the pace of the whole process."], ["Capacity-constrained resource", "At risk of becoming a bottleneck; can hurt throughput even below full capacity."], "Limit inventory to what the bottleneck can process.", "smed"],
     ["ch21", "Push vs pull", ["Push", "Produce to a schedule or forecast regardless of downstream need; WIP builds."], ["Pull", "Customer demand triggers production; replenish only what is consumed (kanban)."], "Lower WIP means shorter lead time (Little's law).", "tools"],
     ["ch21", "Poka-yoke vs inspection", ["Poka-yoke", "Makes the error impossible, or obvious the moment it happens."], ["Inspection", "Finds defects after they are made (appraisal)."], "Mistake-proofing prevents; it is not after-the-fact checking.", "tools"],
-    /* Control */
     ["ch22", "Control limits vs specification limits", ["Control limits", "Calculated from process data at ±3σ of the plotted statistic — the voice of the process."], ["Specification limits", "Set by the customer or engineering — the voice of the customer."], "Never draw spec limits on an X̄ chart. In control does not mean capable.", "causes"],
     ["ch22", "Common vs special cause", ["Common cause", "Inherent, many small sources; reduce it by changing the system (management)."], ["Special cause", "Assignable, unusual; the operator can usually remove it once alerted."], "Treating common cause as special is tampering.", "causes"],
     ["ch22", "Type I vs Type II error on a chart", ["Type I (α)", "False alarm: acting on common-cause noise — producer's risk; leads to tampering."], ["Type II (β)", "Missed signal: failing to act on a real special cause — consumer's risk."], "p. 425 mislabels the false alarm as Type II; p. 389–390 has it right.", "basics"],
@@ -203,16 +282,18 @@
     ["ch24", "Preventive vs predictive maintenance", ["Preventive", "Scheduled work by time or usage, to prevent unforeseen breakdowns."], ["Predictive", "Act on early signs of failure (condition, anomalies) before the breakdown."], "The 2022 BoK names predictive maintenance explicitly.", "tpm"],
     ["ch24", "Availability loss vs performance loss", ["Availability loss", "Breakdowns and changeovers — the machine is down."], ["Performance loss", "Idling, minor stops and reduced speed — running, but slowly."], "Planned downtime is removed before either is counted.", "oee"],
     ["ch24", "Jidoka vs poka-yoke", ["Jidoka", "The machine detects an abnormality, stops and alerts — automation with a human touch."], ["Poka-yoke", "A design that makes the error impossible or obvious; one technique used within jidoka."], "Jidoka does not remove people; it pairs detection with judgment.", "jidoka"],
-    ["ch24", "Andon vs kanban", ["Andon", "A visual or audible signal of process status that calls for help."], ["Kanban", "A signal to replenish or produce when parts are consumed."], "Status and help → andon. Material → kanban.", "visual"]
+    ["ch24", "Andon vs kanban", ["Andon", "A visual or audible signal of process status that calls for help."], ["Kanban", "A signal to replenish or produce when parts are consumed."], "Status and help → andon. Material → kanban.", "visual"],
+    /* Improve */,
+    /* Control */
   ];
   let filt = "all";
-  const PH_BTNS = [["all", "All"], ["org", "Organization"], ["define", "Define"], ["improve", "Improve"], ["control", "Control"]];
-  const CH_OF = { org: ["ch1", "ch2", "ch3"], define: ["ch4", "ch5", "ch6", "ch7", "ch8", "ch9"], improve: ["ch19", "ch20", "ch21"], control: ["ch22", "ch23", "ch24"] };
+  const PH_BTNS = [["all", "All"], ["org", "Organization"], ["define", "Define"], ["measure", "Measure"], ["analyze", "Analyze"], ["improve", "Improve"], ["control", "Control"]];
+  const CH_OF = { org: ["ch1", "ch2", "ch3"], define: ["ch4", "ch5", "ch6", "ch7", "ch8", "ch9"], measure: ["ch10", "ch11", "ch12", "ch13", "ch14", "ch15"], analyze: ["ch16", "ch17", "ch18"], improve: ["ch19", "ch20", "ch21"], control: ["ch22", "ch23", "ch24"] };
   G.page("traps", {
     title: "Traps lab",
     render: () => `
       <h1>Traps lab</h1>
-      <p class="lede">ASQ's favourite distractor is the correct definition of the wrong concept. These are the pairs it builds them from, across Part I, Define, Improve and Control.</p>
+      <p class="lede">ASQ's favourite distractor is the correct definition of the wrong concept. These are the pairs it builds them from, across all six areas of the Body of Knowledge.</p>
       <div class="row noprint" style="margin:1rem 0 .4rem"><span class="seg" role="group" aria-label="Filter by phase" data-ph></span><span class="soft small" data-n></span></div>
       <div class="row noprint" style="margin:0 0 1rem"><span class="seg" role="group" aria-label="Filter by chapter" data-chs></span></div>
       <div data-cards></div>`,
@@ -275,6 +356,50 @@
       ["Prioritization matrix", "Total = Σ (weight × rank)", "Highest total wins; weights sum to 1", "ch7", "prio"],
       ["Multivoting", "Ranked: Σ ranks · Weighted: Σ points (100 each)", "Use both when close", "ch9", "tools"]
     ],
+    measure: [
+      ["Addition rule", "P(A or B) = P(A) + P(B) − P(A and B)", "Two machines at 0.8: 0.8 + 0.8 − 0.64 = 0.96", "ch11", "rules"],
+      ["Multiplication rule", "P(A and B) = P(A) × P(B | A)", "10/50 × 9/49 × 8/48 = 0.0061", "ch11", "rules"],
+      ["Permutations", "nPr = n! ÷ (n − r)!", "5P5 = 120", "ch11", "counting"],
+      ["Combinations", "nCr = n! ÷ [r!(n − r)!]", "10C3 = 120", "ch11", "counting"],
+      ["Standard error", "σ<sub>x̄</sub> = σ ÷ √n", "0.012 ÷ √16 = 0.003", "ch11", "clt"],
+      ["CI for a mean", "x̄ ± Z·σ/√n · x̄ ± t·s/√n (df n − 1)", "10 ± 1.96 × 0.003 = 9.9941 to 10.0059", "ch11", "clt"],
+      ["Binomial", "P(x) = nCx pˣ(1 − p)ⁿ⁻ˣ · μ = np · σ = √[np(1 − p)]", "n 5, p 0.1: P(1) = 0.328", "ch12", "binom"],
+      ["Poisson", "P(x) = e<sup>−λ</sup>λˣ ÷ x! · mean = variance = λ", "λ 5: P(x &lt; 2) = 0.040", "ch12", "pois"],
+      ["Z-score", "Z = (x − μ) ÷ σ", "Pizza: 20 → −2, 35 → +1 → 0.8186", "ch12", "normal"],
+      ["Sample standard deviation", "s = √[Σ(x − x̄)² ÷ (n − 1)]", "σ divides by N", "ch13", "desc"],
+      ["Box-plot fences", "Q1 − 1.5·IQR and Q3 + 1.5·IQR", "IQR = Q3 − Q1", "ch13", "graphs"],
+      ["Correlation coefficient", "r = S<sub>xy</sub> ÷ √(S<sub>xx</sub>S<sub>yy</sub>)", "93.75 ÷ √(1125 × 8.1875) = 0.977", "ch13", "graphs"],
+      ["Weibull mean life", "MTBF = η × Γ(1 + 1/β)", "4.635 × 0.9335 = 4.33 h", "ch13", "probplot"],
+      ["Repeatability", "EV = R̿ × K₁", "0.3417 × 0.5908 = 0.202", "ch14", "grr"],
+      ["Reproducibility", "AV = √[(X̄<sub>DIFF</sub>K₂)² − EV² ÷ (n·r)]", "√[(0.4446 × 0.5231)² − 0.202² ÷ 30] = 0.230", "ch14", "grr"],
+      ["GRR, PV, TV", "GRR = √(EV² + AV²) · PV = Rp × K₃ · TV = √(GRR² + PV²)", "0.306 · 1.105 · 1.146", "ch14", "grr"],
+      ["%GRR and ndc", "%GRR = 100 × GRR ÷ TV · ndc = 1.41 × PV ÷ GRR", "26.7% · ndc 5", "ch14", "grr"],
+      ["Precision-to-tolerance", "%P/T = 100 × 6·GRR ÷ tolerance", "5.15 in older practice", "ch14", "grr"],
+      ["σ from the range", "σ̂ = R̄ ÷ d₂", "0.05 ÷ 2.059 = 0.024", "ch15", "limits"],
+      ["Z to each limit", "Z<sub>U</sub> = (USL − x̄) ÷ σ · Z<sub>L</sub> = (x̄ − LSL) ÷ σ", "1.46 → 7.21% · 2.70 → 0.35%", "ch15", "limits"],
+      ["Cp, Cpk, Cr", "(USL − LSL) ÷ 6σ · min(Z<sub>U</sub>, Z<sub>L</sub>) ÷ 3 · 1 ÷ Cp", "0.69 · 0.49 · 1.45", "ch15", "indices"],
+      ["Pp, Ppk", "Same formulas with the overall sample s", "s 0.004: 1.667 and 1.33", "ch15", "indices"],
+      ["Cpm", "(USL − LSL) ÷ 6√[s² + (x̄ − T)²]", "Figure 15.6: 0.41", "ch15", "indices"],
+      ["Sigma shift", "Z<sub>LT</sub> = Z<sub>ST</sub> − 1.5", "6σ → 4.5σ → 3.4 ppm", "ch15", "shift"]
+    ],
+    analyze: [
+      ["t-test for r", "t = r ÷ √[(1 − r²) ÷ (n − 2)], df n − 2", "r 0.972, n 6 → 8.27", "ch16", "corr"],
+      ["Least squares line", "b = S<sub>xy</sub> ÷ S<sub>xx</sub> · a = ȳ − b·x̄", "Complaints: b 0.583, a 6.50", "ch16", "regress"],
+      ["Slope test", "t = b ÷ (s/√S<sub>xx</sub>), df n − 2", "0.3 ÷ (0.5/√50) = 4.24", "ch16", "regress"],
+      ["CI vs prediction interval", "ŷ ± t·s√[1/n + (x₀ − x̄)²/S<sub>xx</sub>] · PI adds “1 +”", "The PI is always wider", "ch16", "regress"],
+      ["Sample size", "n = (Z·σ ÷ E)², round up", "(1.96 × 35 ÷ 10)² = 47.06 → 48", "ch17", "power"],
+      ["Sample size for power", "n = [(Z<sub>1−α/2</sub> + Z<sub>power</sub>)σ ÷ δ]²", "σ 0.03, δ 0.04, power 0.90 → 6", "ch17", "power"],
+      ["One-sample Z and t", "(x̄ − μ₀) ÷ (σ/√n) · (x̄ − μ₀) ÷ (s/√n), df n − 1", "Z 10.67 · t −1.12", "ch17", "means"],
+      ["Pooled two-sample t", "s<sub>p</sub>² = [(n₁ − 1)s₁² + (n₂ − 1)s₂²] ÷ (n₁ + n₂ − 2)", "s<sub>p</sub> 0.0162 · t 1.23 · df 8", "ch17", "two"],
+      ["Welch t", "(x̄₁ − x̄₂) ÷ √(s₁²/n₁ + s₂²/n₂)", "df 7.63 → round down to 7", "ch17", "two"],
+      ["Paired t", "d̄ ÷ (s<sub>d</sub>/√n), df n − 1", "0.0126 ÷ 0.00409 = 3.08", "ch17", "two"],
+      ["χ² for one variance", "(n − 1)s² ÷ σ₀² · CI: (n − 1)s² ÷ χ²<sub>upper</sub> to ÷ χ²<sub>lower</sub>", "34 × 46 ÷ 36 = 43.44", "ch17", "varprop"],
+      ["F for two variances", "s₁² ÷ s₂², df (n₁ − 1, n₂ − 1)", "1,800² ÷ 600² = 9 &gt; 4.88", "ch17", "two"],
+      ["One proportion", "Z = (p̂ − p₀) ÷ √[p₀(1 − p₀)/n] · CI p̂ ± Z√[p̂(1 − p̂)/n]", "15/500 vs 0.02: Z 1.60", "ch17", "varprop"],
+      ["One-way ANOVA", "F = [SS<sub>B</sub> ÷ (k − 1)] ÷ [SS<sub>W</sub> ÷ (N − k)]", "(17.69 ÷ 2) ÷ (3.34 ÷ 9) = 23.8", "ch17", "anova"],
+      ["Chi-square tests", "Σ(O − E)² ÷ E · df k − 1 or (r − 1)(c − 1)", "Defect mix: 5.33 &lt; 7.815", "ch17", "chisq"],
+      ["Fault tree gates", "AND: Π p · OR: 1 − Π(1 − p)", "0.1 and 0.1: AND 0.01 · OR 0.19", "ch18", "fta"]
+    ],
     improve: [
       ["Full factorial runs", "Runs = L<sup>F</sup> × replicates", "2⁴ × 2 replicates = 32", "ch19", "principles"],
       ["Fractional factorial runs", "Runs = 2<sup>F−p</sup>", "2<sup>7−4</sup> = 8 runs for 7 factors", "ch19", "fractional"],
@@ -311,7 +436,7 @@
     title: "Formula sheet",
     render: () => `
       <h1>Formula sheet</h1>
-      <p class="lede">Every calculation in the Part I, Define, Improve and Control chapters, each with a worked example from the handbook or this guide. Print it and file it in your binder.</p>
+      <p class="lede">Every calculation in all 24 chapters, each with a worked example from the handbook or this guide. Print it and file it in your binder.</p>
       <div class="row noprint" style="margin-bottom:1rem"><button class="btn primary" type="button" data-print>Print this sheet</button></div>
       ${PHASES.map((p) => `
         <h2 class="phase-h">${p.name} · Chapters ${p.chs}</h2>
@@ -368,6 +493,42 @@
     ["ch9", "149–152", "Table 9.1 negative dynamics", "Tab the whole table"],
     ["ch9", "153–159", "RACI (Table 9.2) and roles (Table 9.3)", "One A per task; full-time roles"],
     ["ch9", "164–166", "NGT and multivoting", "Ranked vs weighted"],
+    ["ch10", "169", "Flowchart symbols (Fig. 10.1)", "Nine shapes; diamond = decision"],
+    ["ch10", "172–173", "Procedures vs work instructions", "What/why/where/when vs who/how"],
+    ["ch10", "176–180", "Pareto rules, weighted Pareto, measles chart", "“Other” last; score = count × weight"],
+    ["ch10", "180–181", "Relationship matrix", "9 / 3 / 1"],
+    ["ch11", "183", "Probability rules box", "Exclusive → add; independent → multiply"],
+    ["ch11", "186–187", "Permutations and combinations", "Fix “seven” → ten on p. 187"],
+    ["ch11", "188–190", "Central limit theorem", "Three statements; SE = σ/√n (fix the p. 190 label)"],
+    ["ch12", "193", "Table 12.1 distribution formulas", "Mean and variance of each"],
+    ["ch12", "194–198", "Binomial and Poisson examples", "n(1 − p) ≥ 10; defects vs defectives"],
+    ["ch12", "199–205", "Normal areas; χ², t and F properties", "Lower-tail F = reciprocal with df swapped"],
+    ["ch13", "207", "Table 13.1 measurement scales", "Statistics allowed on each scale"],
+    ["ch13", "209–213", "Sampling types, data collection plan", "Stratify mixed lots; 5W1H; data checks"],
+    ["ch13", "216", "Summary of descriptive measures", "s (n − 1) vs σ (N); your calculator keys"],
+    ["ch13", "217–224", "Graph comparison, box plot, run chart", "Quartile-method note; four run tests"],
+    ["ch13", "230–232", "Probability plot and Weibull", "β &lt; 1, ≈ 1, &gt; 1; fix the MTBF statement"],
+    ["ch14", "233–234", "MSA terms", "EV = gage; AV = appraisers"],
+    ["ch14", "239–241", "AIAG GR&amp;R report (Figs 14.5–14.6)", "K₁, K₂, K₃, D₄ written on the tab"],
+    ["ch14", "242", "Acceptance criteria and ndc", "10 / 30%; 1 / 9%; ndc ≥ 5"],
+    ["ch14", "244–246", "Common GR&amp;R errors", "Parts must span the range"],
+    ["ch14", "246–251", "Linearity and bias; attribute agreement", "Fix the R-sq reading on p. 246"],
+    ["ch15", "254–256", "Control vs spec grid; packing example", "Z → % out with Appendix F"],
+    ["ch15", "258–259", "Capability study steps", "MSA → stability → normality → indices"],
+    ["ch15", "261–265", "Cp, Cpk, Cr, Pp, Ppk, Cpm", "Which σ; d₂ for n = 2–5"],
+    ["ch15", "265–267", "Short- vs long-term; 1.5σ shift", "Z<sub>LT</sub> = Z<sub>ST</sub> − 1.5"],
+    ["ch16", "271–278", "Multi-vari families and the casting case", "Attack the biggest family first"],
+    ["ch16", "281–285", "Correlation, p-value, t-test for r", "df n − 2 (fix step 4)"],
+    ["ch16", "286–292", "Least squares, slope test, intervals", "CI = mean; PI = one unit"],
+    ["ch17", "296", "Error matrix (Table 17.1)", "α producer's; β consumer's; power 1 − β"],
+    ["ch17", "299–301", "Sample size and power", "Fix 470.59 → 47.06; fix the p. 300 power sentence"],
+    ["ch17", "303–311", "Z, t, χ² and proportion tests; CIs", "Statistic and df beside each"],
+    ["ch17", "312–317", "Pooled, Welch, paired t; F-test", "Welch df rounds down"],
+    ["ch17", "317–321", "One-way ANOVA table", "SS, df, MS, F; F(0.05; 2, 9) = 4.26"],
+    ["ch17", "324–327", "Chi-square goodness of fit and contingency", "Fix 4.9 → 5.33"],
+    ["ch17", "App. G, I, L", "F, χ² and t tables", "Tab next to the test-selection table"],
+    ["ch18", "329–330", "Gap analysis metrics", "Predefined; proactive vs reactive"],
+    ["ch18", "331–333", "5 Whys and fault tree analysis", "Stop at the system level; AND ×, OR 1 − Π(1 − p)"],
     ["ch19", "336–338", "DOE terms", "Box replication vs repetition (“reset”)"],
     ["ch19", "339–342", "Design types, randomization, blocking", "Latin square: no interactions"],
     ["ch19", "346–348", "Main effects and interactions (Fig 19.1)", "Effect = avg(+) − avg(−); sign × sign"],
@@ -416,6 +577,35 @@
     ["ch8", "141", "Shifted yield described as area “to the right of 1.5σ”", "Read −1.5σ (sign lost in the scan); yield ≈ 0.9332."],
     ["ch9", "165", "Fig. 9.3 member columns", "In the scan two members' columns repeat a rank (sum 16, not 15). Final order A > C > B > D > E holds."],
     ["ch9", "166", "Fig. 9.4 total for D shown as 430", "130 — every column sums to 100, so the grand total is 900."],
+    ["ch11", "187", "“Three objects from a collection of seven objects”", "Ten volunteers: 10C3 = 120."],
+    ["ch11", "190", "σ/√n = 0.003 called the “sample standard deviation”", "The standard error of the mean."],
+    ["ch12", "196", "Normal approximation if np ≥ 10 and np(1 − p) ≥ 10", "np ≥ 10 and n(1 − p) ≥ 10."],
+    ["ch12", "197", "Poisson P(0) ≈ 0.006", "0.0067 (the total P(x &lt; 2) = 0.040 is right)."],
+    ["ch12", "198", "Defectives in a lot of 50 by Poisson: 0.175", "A Poisson approximation; the exact binomial is 0.185."],
+    ["ch12", "204", "“Approximately 7.8 percent of the packs could be greater than 7.5”", "A p-value isn't a share of packs. If normal, about 33% of packs exceed 7.5 g; the test only shows no evidence that μ &gt; 7.5."],
+    ["ch13", "220–221", "Q1 = median of values at or below Q2, yet Q1 = 8.20 and Q3 = 9.79 printed", "That rule gives 8.25 and 9.63; the printed values follow Minitab's (n + 1)p method."],
+    ["ch13", "230", "p &gt; 0.05, so “these data come from a normal distribution”", "No evidence against normality — not proof of it."],
+    ["ch13", "232", "Weibull mean at the 63.2 percentile; MTBF = 4.635 h", "4.635 h is the characteristic life η. Mean = η·Γ(1 + 1/β) = 4.33 h; R(3.9) = 0.73."],
+    ["ch14", "243", "Observed Cp 1.0 with 50% GR&amp;R → actual Cp 1.23", "Holds only with the 5.15σ %GRR; with 6σ it's 1.15."],
+    ["ch14", "246", "R-Sq 0.0% “shows a nonlinearity issue”", "Slope p = 0.974: linearity is fine. The problem is bias: −0.115 (p 0.000), driven by the 0.6 reference."],
+    ["ch15", "257", "FMEA and control plans “can be found in Chapter 9”", "FMEA is in Chapter 3; control plans in Chapter 23."],
+    ["ch15", "263–264", "Pp, Ppk, Cpm “require stability” — then AIAG recommends Pp/Ppk when not in control", "Pp/Ppk describe past performance from the overall s; they predict nothing for an unstable process."],
+    ["ch16", "282", "p = 0.333 = “probability of mistakenly rejecting the hypothesis”", "The chance of an r this large with no real relationship; with n = 3 it isn't significant."],
+    ["ch16", "283–284", "Correlation test and CI use df = n − 1", "n − 2 — as the example itself uses."],
+    ["ch16", "287", "Complaints rise “one per month”; 14.666 reported as 14", "Slope 0.58 per month; the slope isn't significant (p ≈ 0.12) and month 14 is an extrapolation."],
+    ["ch16", "290", "Fail to reject → “must conclude that a relationship does not exist”", "Insufficient evidence; p = 0.051 with n = 4 is a low-power result."],
+    ["ch16", "292", "CI of 7.84 to 14.49 described as for “the number of items”", "That's the CI for the mean; one month's count needs the prediction interval."],
+    ["ch17", "298", "Golf printout: mean 19.673, s 1.775, t −0.58", "The listed data give 19.70, 1.767, t −0.54, p 0.70. Same conclusion."],
+    ["ch17", "299", "n = (1.96)²(35)² ÷ 10² = 470.59, “E = process mean”", "47.06 → 48. E is the shift to detect; with E = 8 tons, n = 74."],
+    ["ch17", "300", "Power 0.8 means “a 20% likelihood it will incorrectly identify a significant difference”", "20% is β — missing a real difference. A false detection is α."],
+    ["ch17", "306–310", "“No change”, “no difference” after failing to reject", "Insufficient evidence of a difference."],
+    ["ch17", "311", "p′ = 15/300 = 0.03", "15/500 = 0.03."],
+    ["ch17", "312", "Two-sample example “uses a paired t-test”", "It's a pooled two-sample t-test. A paired test on the same numbers gives p = 0.037."],
+    ["ch17", "314", "Welch df 7.627 rounded up to 8; “p &gt; 0.5 … equal variances”", "Round down to 7 (critical 2.365). The test is about means; the threshold is 0.05."],
+    ["ch17", "315", "“A paired test is always a two-tailed test”", "Paired tests can be one-tailed when H₁ is directional."],
+    ["ch17", "320–323", "F = 23.92; Figures 17.6–17.7 labels", "23.81 unrounded. The group with mean 10.575 is 240 °F — the figure labels are swapped."],
+    ["ch17", "326", "χ² = 4.9 for the defect mix", "5.33 — the table and software agree; p = 0.149."],
+    ["ch18", "333", "“All the probabilities sum up to the top-level cause”", "AND gates multiply; OR = 1 − Π(1 − p)."],
     ["ch19", "338", "Fisher developed DOE “in the 1920s and 1980s”", "1920s and 1930s (<i>The Design of Experiments</i>, 1935)."],
     ["ch19", "338", "An independent variable “does not have interactions with other variables”", "Factors can interact — that is what interaction effects measure. “Independent” only means the experimenter sets it."],
     ["ch19", "356", "Half-fraction steak average 76.67", "74.25 — the four runs are 88, 58, 67 and 84. The effects (23.5, −6.5, 2.5) are right."],
@@ -454,6 +644,20 @@
         <li><b>Calculation items:</b> write the formula from your formula sheet first, then substitute. The distractors are the classic slips: forgetting opportunities, averaging yields, inverting CPI.</li>
         <li><b>Scenario items with named people:</b> underline the symptom words (agree too readily, doubts in private, interrupts) and go straight to Table 9.1 or the stage list.</li>
         <li><b>Budget:</b> about 2 minutes 20 seconds per question. Define items are mostly recognition — bank time here for Measure and Analyze calculations.</li>
+      </ul>
+      <h3 class="phase-h">Measure</h3>
+      <ul>
+        <li><b>Capability items:</b> write the σ source first — R̄/d₂ means Cp/Cpk, an overall s means Pp/Ppk — then Z to each limit, then divide by 3. Distractors: Cp offered for Cpk, Z not divided by 3, the far limit used.</li>
+        <li><b>MSA items:</b> find the base (study variation, tolerance or %contribution) before applying 10/30% or 1/9%. Then ask whether EV or AV dominates.</li>
+        <li><b>Probability:</b> decide exclusive or independent from the stem, write the rule, substitute. Watch for “without replacement”.</li>
+        <li><b>Distributions and graphs:</b> the noun decides — defectives vs defects, one variable vs two, time order or not.</li>
+      </ul>
+      <h3 class="phase-h">Analyze</h3>
+      <ul>
+        <li><b>Test selection in two questions:</b> what is being compared (means, variances, proportions, counts), and how many groups — paired or independent? Then take the df from your tab.</li>
+        <li><b>Conclusions:</b> when p &gt; α, options saying “accept H₀”, “proves” or “no difference” are wrong; “insufficient evidence” is right.</li>
+        <li><b>Regression:</b> check the slope's significance before predicting, refuse to extrapolate, and use n − 2 df.</li>
+        <li><b>Root cause scenarios:</b> prefer the verified, system-level cause; AND gates multiply.</li>
       </ul>
       <h3 class="phase-h">Improve</h3>
       <ul>

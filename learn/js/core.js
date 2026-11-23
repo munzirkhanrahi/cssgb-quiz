@@ -93,6 +93,17 @@
     { id: "ch7", n: "7", l: "M&P tools", c: "--c7" },
     { id: "ch8", n: "8", l: "Results", c: "--c8" },
     { id: "ch9", n: "9", l: "Teams", c: "--c9" },
+    { gap: "Measure" },
+    { id: "ch10", n: "10", l: "Process maps", c: "--c10" },
+    { id: "ch11", n: "11", l: "Probability", c: "--c11" },
+    { id: "ch12", n: "12", l: "Distributions", c: "--c12" },
+    { id: "ch13", n: "13", l: "Data, graphs", c: "--c13" },
+    { id: "ch14", n: "14", l: "MSA", c: "--c14" },
+    { id: "ch15", n: "15", l: "Capability", c: "--c15" },
+    { gap: "Analyze" },
+    { id: "ch16", n: "16", l: "Multi-vari, regression", c: "--c16" },
+    { id: "ch17", n: "17", l: "Hypothesis tests", c: "--c17" },
+    { id: "ch18", n: "18", l: "Gap, root cause", c: "--c18" },
     { gap: "Improve" },
     { id: "ch19", n: "19", l: "DOE", c: "--c19" },
     { id: "ch20", n: "20", l: "Pilots, PoC", c: "--c20" },
@@ -143,7 +154,7 @@
         <div><p class="soft small" style="margin:0 0 .3rem">Chapter ${ch.num}, BoK ${ch.bok}, handbook pages ${ch.pages}</p><h1>${ch.title}</h1></div>
         <p class="lede">${ch.lede}</p>
       </header>
-      <div class="legend small" aria-hidden="true">${["Remember", "Understand", "Apply", "Analyze"].filter((l) => secs.some((x) => x.level === l)).map((l) => `<span><i class="dot lvdot lv-${l}" style="width:10px;height:10px;border-radius:50%;display:inline-block"></i>${l}</span>`).join("")}<span><b>HY</b> high yield</span></div>
+      <div class="legend small" aria-hidden="true">${["Remember", "Understand", "Apply", "Analyze", "Evaluate", "Create"].filter((l) => secs.some((x) => x.level === l)).map((l) => `<span><i class="dot lvdot lv-${l}" style="width:10px;height:10px;border-radius:50%;display:inline-block"></i>${l}</span>`).join("")}<span><b>HY</b> high yield</span></div>
       <ul class="toc">${toc}<li><a href="#/${ch.id}/check"><span class="lvdot" style="background:var(--ink)"></span><span class="tl">Blind check (${ch.check.length} questions)</span></a></li></ul>
       ${body}
       <section class="check" id="${ch.id}-check" aria-labelledby="${ch.id}-check-h">

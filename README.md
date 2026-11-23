@@ -4,11 +4,18 @@ A practice quiz for the ASQ Certified Six Sigma Green Belt (CSSGB) exam: 654 mul
 
 **Live site:** https://munzirkhanrahi.github.io/cssgb-quiz/
 
-## Visual study guide: Part I, Define, Improve and Control
+## Visual study guide: the whole Body of Knowledge
 
 **Live:** https://munzirkhanrahi.github.io/cssgb-quiz/learn/
 
-Interactive, visual notes for handbook Chapters 1–3 (Six Sigma and the organization, BoK I.A–I.C), 4–9 (Define, BoK II.A–II.F), 19–21 (Improve, V.A–V.C) and 22–24 (Control, VI.A–VI.C): a BoK map shaded by cognitive level, a working tool for every calculation (expected profit, cost-of-quality curves, drum-buffer-rope, a value stream timeline, an FMEA risk-priority lab; DPMO, RTY, sigma level, Cp/Cpk, CPI/SPI, critical path, QFD weights; 2³ DOE effects with main-effect and interaction plots, aliasing, takt time and line balance, capacity, Little's law, SMED; control limits for X̄–R, X̄–s, I–MR, p, np, c and u charts, a run-rules lab, rational subgrouping and tampering simulations, OEE), classification drills, a traps lab of close-difference pairs, a printable formula sheet with the control chart constants, a binder tab map with handbook corrections, and a blind check at the end of each chapter. Files live in `learn/` (no build step).
+Interactive, visual notes for all 24 handbook chapters — Chapters 1–3 (Six Sigma and the organization, BoK I.A–I.C), 4–9 (Define, II.A–II.F), 10–15 (Measure, III.A–III.F), 16–18 (Analyze, IV.A–IV.C), 19–21 (Improve, V.A–V.C) and 22–24 (Control, VI.A–VI.C). It includes:
+
+- a BoK map shaded by cognitive level, from Remember to Create;
+- a working tool for every calculation — expected profit, cost-of-quality curves, drum-buffer-rope, value stream timeline, FMEA risk priority; DPMO, RTY, sigma level, Cp/Cpk, CPI/SPI, critical path, QFD weights; probability rules, counting, a central-limit-theorem simulator, a distribution explorer (binomial, Poisson, normal, t, χ², F), descriptive statistics with histogram, box plot, stem-and-leaf and normal probability plot (Anderson-Darling), run-chart tests, GR&R (AIAG average and range), bias and linearity, attribute agreement, a capability calculator (Cp, Cpk, Pp, Ppk, Cpm) and the 1.5σ shift; multi-vari charts, correlation and regression with confidence and prediction intervals, power and sample size, Z/t/pooled/Welch/paired tests, χ² and F variance tests, proportion tests, chi-square goodness of fit and contingency tables, one-way ANOVA, gap analysis, 5 Whys and fault-tree gates; 2³ DOE effects, takt time, line balance, Little's law, SMED; control limits for X̄–R, X̄–s, I–MR, p, np, c and u charts, run rules, rational subgrouping and tampering, OEE;
+- classification drills and decision trees (which distribution, which test, which chart);
+- a traps lab of 123 close-difference pairs, a printable formula sheet with the control chart constants, a binder tab map with handbook corrections, and a blind check at the end of each chapter.
+
+Files live in `learn/` (no build step); `learn/js/stats.js` holds the statistics functions (t, χ², F, binomial, Poisson, Anderson-Darling).
 
 ## What it does
 
@@ -38,7 +45,7 @@ Merging never loses answers: attempts from all devices are combined; for saved q
 | `questions.js` | Question bank generated from the PDF |
 | `tools/parse.py` | Extracts questions, options, answers and explanations from the PDF text |
 | `tools/build_bank.py` | Turns the parsed JSON into `questions.js` |
-| `learn/` | Visual study guide for Part I and the Define, Improve and Control phases (`index.html`, `learn.css`, `js/`) |
+| `learn/` | Visual study guide covering all 24 chapters (`index.html`, `learn.css`, `js/`) |
 
 ## Regenerating the question bank
 
